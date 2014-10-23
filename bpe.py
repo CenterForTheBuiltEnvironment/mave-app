@@ -127,24 +127,26 @@ if __name__ == '__main__':
     plot = args.plot # plots the prediction results   
 
     # define output folder from parameters
-    op = '.\\' + args.output_folder
-  
+    op = os.path.join(args.output_folder)
+    
     # creates a sub folder output name that is detailed summary of the
     # parameters used for these runs and saves the detailed output in
     # folder
     if save and not prediction_input_filename:
-        op += '\\' + fp
-        op += '\\_rs'+ str(reduce_size)
-        op += '_pf' + str(prediction_fraction)
-        op += '_rps'+ str(random_prediction_dataset)[0]
-        op += '\\c' + str(comp_time)
-        op += '_k' + str(k)
-        op += '_mmn' + str(min_max_normalization)[0] 
-        op += '_mth' + str(month_flag)[0]
-        op += '_hol' + str(holidays_flag)[0]
-        op += '_nv' + str(n_vals_in_past_day)
-        op += '_j' + str(join_holidays)    
- 
+        op = os.path.join(op,fp)
+        folder = 'rs'+ str(reduce_size) + \
+                 '_pf' + str(prediction_fraction) + \
+                 '_rps'+ str(random_prediction_dataset)[0]
+        op = os.path.join(op,folder)
+        folder = 'c' + str(comp_time)+ \
+                 '_k' + str(k) + \
+                 '_mmn' + str(min_max_normalization)[0] + \
+                 '_mth' + str(month_flag)[0] + \
+                 '_hol' + str(holidays_flag)[0] + \
+                 '_nv' + str(n_vals_in_past_day) + \
+                '_j' + str(join_holidays)
+        op = os.path.join(op,folder)
+
     if not os.path.exists(op): os.makedirs(op)
 
     # list to contain each trained models
@@ -326,7 +328,7 @@ if __name__ == '__main__':
     
     headers, country = process_headers(fp)
     if country == 'us' and holidays_flag:
-        with open('.\\Holidays\\USFederalHolidays.p', 'r') as fh:
+        with open(os.path.join('Holidays','USFederalHolidays.p'), 'r') as fh:
             holidays = pickle.load(fh)
     else:
         holidays = []
@@ -454,27 +456,28 @@ if __name__ == '__main__':
             print "Score: " + str(best_model.score(X_test_s, y_test_s))
             print_overview(y_test,out_test)
 
-    # Write the results to a single file
-    with open('.\\ResultsLog.csv', 'a') as fo:
-        fo.seek(0, 2)
-        summary = [fp,prediction_fraction,k,comp_time,
-                   random_prediction_dataset,min_max_normalization,
-                   holidays_flag,join_holidays,month_flag,n_vals_in_past_day,reduce_size]
-        summary.append(str(best_model.best_estimator_).split('(')[0])
-        summary.append(best_model.best_score_)
-        if prediction_input_filename:
-            summary.append('NA - prediction only')
-        else:
-            summary.append(best_model.score(X_test_s, y_test_s))
-        for m in models:
-            summary.append(str(m.best_estimator_).split('(')[0])
-            summary.append(m.best_score_)
-        fo.write(','.join(map(str, summary)))
-        fo.write('\n')
+##    # Write the results to a single file
+##    if not prediction_input_filename:
+##        with open('ResultsLog.csv', 'a') as fo:
+##            fo.seek(0, 2)
+##            summary = [fp,prediction_fraction,k,comp_time,
+##                       random_prediction_dataset,min_max_normalization,
+##                       holidays_flag,join_holidays,month_flag,n_vals_in_past_day,reduce_size]
+##            summary.append(str(best_model.best_estimator_).split('(')[0])
+##            summary.append(best_model.best_score_)
+##            if prediction_input_filename:
+##                summary.append('NA - prediction only')
+##            else:
+##                summary.append(best_model.score(X_test_s, y_test_s))
+##            for m in models:
+##                summary.append(str(m.best_estimator_).split('(')[0])
+##                summary.append(m.best_score_)
+##            fo.write(','.join(map(str, summary)))
+##            fo.write('\n')
     
     if prediction_input_filename:
         if verbose: print "\n=== Writing prediction file ==="
-        with open(op + '\\' + prediction_output_filename, 'w') as fo:
+        with open(os.path.join(op,prediction_output_filename), 'w') as fo:
             headers.pop() # remove timestamp row
             for i in range(len(headers)):
                 fo.write(','.join(map(str, headers[i])))
@@ -485,18 +488,20 @@ if __name__ == '__main__':
     
     if save:
         write_model_results(models, op)
-        if not os.path.exists(op + '\\Data'): os.makedirs(op+'\\Data')
-        np.savetxt(op + '\\Data\\Training_Input.txt', X)
-        np.savetxt(op + '\\Data\\Training_Target.txt', y)
-        np.savetxt(op + '\\Data\\Normalized_Training_Input.txt', X_s)
-        np.savetxt(op + '\\Data\\Normalized_Training_Target.txt', y_s)
-        np.savetxt(op + '\\Data\\Prediction_Input.txt', X_test)
-        np.savetxt(op + '\\Data\\Prediction_Output.txt', out_test)
-        np.savetxt(op + '\\Data\\Normalized_Prediction_Input.txt', X_test_s)
-        np.savetxt(op + '\\Data\\Normalized_Prediction_Output.txt', out_test_s)
+        data_folder = os.path.join(op,'Data')
+        if not os.path.exists(data_folder):
+            os.makedirs(data_folder)
+        np.savetxt(os.path.join(data_folder,'Training_Input.txt'), X)
+        np.savetxt(os.path.join(data_folder,'Training_Target.txt'), y)
+        np.savetxt(os.path.join(data_folder,'Normalized_Training_Input.txt'), X_s)
+        np.savetxt(os.path.join(data_folder,'Normalized_Training_Target.txt'), y_s)
+        np.savetxt(os.path.join(data_folder,'Prediction_Input.txt'), X_test)
+        np.savetxt(os.path.join(data_folder,'Prediction_Output.txt'), out_test)
+        np.savetxt(os.path.join(data_folder,'Normalized_Prediction_Input.txt'), X_test_s)
+        np.savetxt(os.path.join(data_folder,'Normalized_Prediction_Output.txt'), out_test_s)
         if not prediction_input_filename:
-            np.savetxt(op + '\\Data\\Prediction_Target.txt', y_test)
-            np.savetxt(op + '\\Data\\Normalized_Prediction_Target.txt', y_test_s)
+            np.savetxt(os.path.join(data_folder,'Prediction_Target.txt'), y_test)
+            np.savetxt(os.path.join(data_folder,'Normalized_Prediction_Target.txt'), y_test_s)
 
     if plot and not prediction_input_filename: plot_comparison(out_test, y_test)
 

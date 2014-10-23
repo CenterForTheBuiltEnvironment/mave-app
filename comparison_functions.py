@@ -68,8 +68,9 @@ def print_overview(pred, act):
 def write_model_results(models, op):
     for model in models:
         model_name = str(model.best_estimator_).split('(')[0] # gets the name of the regressor
-        if not os.path.exists(op+'\\Models'): os.makedirs(op+'\\Models')
-        with open(op + '\\Models\\' + model_name + '_cross_val_results.txt', 'w') as fo:
+        model_folder = os.path.join(op,'Models')
+        if not os.path.exists(model_folder): os.makedirs(model_folder)
+        with open(os.path.join(model_folder,model_name+'_cross_val_results.txt'), 'w') as fo:
             fo.write('------ Best score -----\n')
             fo.write(str(model.best_score_))
             fo.write('\n')
@@ -80,5 +81,5 @@ def write_model_results(models, op):
             for i in range(len(model.grid_scores_)):
                 fo.write("\n")
                 fo.write(str(model.grid_scores_[i]))
-        with open(op + '\\Models\\' + model_name  + '.p', 'w') as fo:
+        with open(os.path.join(model_folder,model_name+'.p'), 'w') as fo:
             pickle.dump(model.best_estimator_, fo)
