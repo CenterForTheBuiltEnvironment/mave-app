@@ -39,7 +39,7 @@ if __name__ == '__main__':
                         help="reduce the size of the input file data to analyze (useful to test model fit on just part of a file). e.g. -rs 0.25 uses half the first 25% of the file")    
     parser.add_argument("-rps", "--random_prediction_dataset", action="store_true",
                         help="chooses the validation set randomly, instead of from file end")
-    parser.add_argument("-mmn", "--min_max_normalization", action="store_true",
+    parser.add_argument("-mmn", "--min_max_normalization", action="store_true", default=False,
                         help="normalize the data to a range of 2 about 0, instead of mean & std. dev")
     parser.add_argument("-nv", "--n_vals_in_past_day", type=int, default=2,
                         help="number of values (equal time intervals) in past day to use as additional input feature (default=2)")
@@ -129,17 +129,22 @@ if __name__ == '__main__':
     # define output folder from parameters
     op = '.\\' + args.output_folder
   
-##    # Uncomment for a sub folder output name that is detailed summary of the
-##    # parameters used for these results
-##    op += '.\\' + fp
-##    op += '_rps'+ str(random_prediction_dataset)[0] 
-##    op += '_comp' + str(comp_time)
-##    op += 'k' + str(k)
-##    op += 'mmn' + str(min_max_normalization)[0] 
-##    op += 'mth' + str(month_flag)[0]
-##    op += 'hol' + str(holidays_flag)[0]
-##    op += 'pv' +str(n_vals_in_past_day)
-##    op += 'pf' + str(prediction_fraction)   
+    # creates a sub folder output name that is detailed summary of the
+    # parameters used for these runs and saves the detailed output in
+    # folder
+    if save and not prediction_input_filename:
+        op += '\\' + fp
+        op += '\\_rs'+ str(reduce_size)
+        op += '_pf' + str(prediction_fraction)
+        op += '_rps'+ str(random_prediction_dataset)[0]
+        op += '\\c' + str(comp_time)
+        op += '_k' + str(k)
+        op += '_mmn' + str(min_max_normalization)[0] 
+        op += '_mth' + str(month_flag)[0]
+        op += '_hol' + str(holidays_flag)[0]
+        op += '_nv' + str(n_vals_in_past_day)
+        op += '_j' + str(join_holidays)    
+ 
     if not os.path.exists(op): os.makedirs(op)
 
     # list to contain each trained models
@@ -179,9 +184,9 @@ if __name__ == '__main__':
         else:
             if dt.date() in holidays:
                 hol = 3.0 # this day is a holiday
-            elif (dt + timedelta(1,0)).date():
+            elif (dt - timedelta(1,0)).date() in holidays:
                 hol = 1.0 # previous day was a holiday
-            elif (dt + timedelta(1,0)).date():
+            elif (dt + timedelta(1,0)).date() in holidays:
                 hol = 2.0 # next day is a holiday                
             else:
                 hol = 0.0 # this day is not near a holiday
@@ -245,7 +250,7 @@ if __name__ == '__main__':
                 # create new datetime and add to the array
                 new_dt = prev + timedelta(0,interval)              
                 arr[dcn][i] = new_dt.strftime("%m/%d/%Y %H:%M")
-            prev = datetime.strptime(arr[dcn][i], "%m/%d/%Y %H:%M")
+            prev = dateutil.parser.parse(arr[dcn][i], dayfirst=False)
 
         # identify if month of year is a viable training feature
         if prediction_input_filename and not random_prediction_dataset:
@@ -386,7 +391,7 @@ if __name__ == '__main__':
                                             "k neighbours", param_dist,
                                             50))
     # note: probably don't need that many iterations for knr (total approx 200?
-    # looks like p=1 is always poorer than p=2
+    # alos looks like p=1 always performs poorer than p=2 for this type of data
     
     param_dist = {"C": np.logspace(-3, 1, 1000),
                   "epsilon": np.logspace(-3, 0.5, 1000),
@@ -441,7 +446,7 @@ if __name__ == '__main__':
         print "\n=== Evaluating results ==="
         print "-- Best model parameters"
         print best_model.best_estimator_
-        print "\n-- Best model evaluation on training data"
+        print "\n-- Best model evaluation on entire training dataset"
         print "Score: " + str(best_model.score(X_s, y_s))
         print_overview(y,out)
         if not prediction_input_filename:
@@ -449,23 +454,23 @@ if __name__ == '__main__':
             print "Score: " + str(best_model.score(X_test_s, y_test_s))
             print_overview(y_test,out_test)
 
-##    # Write the results to a single file
-##    with open('.\\Results.csv', 'a') as fo:
-##        fo.seek(0, 2)
-##        summary = [fp,prediction_fraction,k,comp_time,
-##                   random_prediction_dataset,min_max_normalization,
-##                   holidays_flag,join_holidays,month_flag,n_vals_in_past_day,reduce_size]
-##        summary.append(str(best_model.best_estimator_).split('(')[0])
-##        summary.append(best_model.best_score_)
-##        if prediction_input_filename:
-##            summary.append('NA - prediction only')
-##        else:
-##            summary.append(best_model.score(X_test_s, y_test_s))
-##        for m in models:
-##            summary.append(str(m.best_estimator_).split('(')[0])
-##            summary.append(m.best_score_)
-##        fo.write(','.join(map(str, summary)))
-##        fo.write('\n')
+    # Write the results to a single file
+    with open('.\\ResultsLog.csv', 'a') as fo:
+        fo.seek(0, 2)
+        summary = [fp,prediction_fraction,k,comp_time,
+                   random_prediction_dataset,min_max_normalization,
+                   holidays_flag,join_holidays,month_flag,n_vals_in_past_day,reduce_size]
+        summary.append(str(best_model.best_estimator_).split('(')[0])
+        summary.append(best_model.best_score_)
+        if prediction_input_filename:
+            summary.append('NA - prediction only')
+        else:
+            summary.append(best_model.score(X_test_s, y_test_s))
+        for m in models:
+            summary.append(str(m.best_estimator_).split('(')[0])
+            summary.append(m.best_score_)
+        fo.write(','.join(map(str, summary)))
+        fo.write('\n')
     
     if prediction_input_filename:
         if verbose: print "\n=== Writing prediction file ==="

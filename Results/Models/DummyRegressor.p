@@ -45,7 +45,7 @@ I-1
 I0
 tp19
 bI00
-S'c\x8a\x02\x9fX_\xdd\xbc'
+S'q\x08\x87ph\xe1(\xbd'
 p20
 tp21
 bsS'constant'
