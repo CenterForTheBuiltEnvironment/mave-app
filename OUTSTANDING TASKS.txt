@@ -1,0 +1,9 @@
+In order of time required:
+) Test using nans for some values in the regressors
+) Test with additional weather data
+) Move preprocessing and date in new functions/files
+) Double check the parameter value ranges for each regressor
+) Test with no weather data (use http://open.enernoc.com/data/) - longer term, automate this process.
+) Consider weighting more recent data as more important using sampling
+) Build an hourweekday bin 'regressor' (as a backup in case the other regressors fail)
+)

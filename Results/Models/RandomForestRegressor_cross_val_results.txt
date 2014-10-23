@@ -1,0 +1,8 @@
+------ Best score -----
+0.766650088943
+------ Best parameters -----
+{'max_features': 8, 'min_samples_split': 156, 'bootstrap': True, 'max_depth': 10, 'min_samples_leaf': 77}
+------ Grid scores -----
+
+mean: 0.74825, std: 0.05975, params: {'max_features': 4, 'min_samples_split': 55, 'bootstrap': False, 'max_depth': 5, 'min_samples_leaf': 31}
+mean: 0.76665, std: 0.05821, params: {'max_features': 8, 'min_samples_split': 156, 'bootstrap': True, 'max_depth': 10, 'min_samples_leaf': 77}

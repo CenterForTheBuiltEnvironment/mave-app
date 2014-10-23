@@ -1,0 +1,10 @@
+------ Best score -----
+-0.0995343719467
+------ Best parameters -----
+{'strategy': 'mean'}
+------ Grid scores -----
+
+mean: -0.23585, std: 0.14317, params: {'strategy': 'median'}
+mean: -0.09953, std: 0.16750, params: {'strategy': 'mean'}
+mean: -0.23585, std: 0.14317, params: {'strategy': 'median'}
+mean: -0.09953, std: 0.16750, params: {'strategy': 'mean'}
