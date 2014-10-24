@@ -209,10 +209,11 @@ if __name__ == '__main__':
             arr = np.genfromtxt(f, comments='#', delimiter=',',
                                      dtype=None, skip_header=len(headers)-1, names=True, missing_values='NA')
         dcn = datetime_col_name.replace(".", "")
+        L = len(arr)
         # reduce the size of the array if requested
         # (for testing a small period from one file covering a long period)
         if reduce_size:
-            arr = arr[:int(reduce_size*len(arr))]
+            arr = arr[:int(reduce_size * L)]
             
         datetimes = arr[dcn]
         start = dateutil.parser.parse(arr[dcn][0], dayfirst=False)
@@ -235,10 +236,11 @@ if __name__ == '__main__':
         # check to ensure that the timedelta between datetimes is
         # uniform through out the array
         prev = start
-        i=0
+        i = 0
+        row_length = len(arr[0])
 
-        while i < len(arr)-1:
-            i +=1
+        while i < L-1:
+            i += 1
             cur = dateutil.parser.parse(arr[dcn][i], dayfirst=False)
             if (cur-prev).seconds%interval != 0:
                 raise Exception("Irregular datetime interval identified between " \
@@ -248,7 +250,8 @@ if __name__ == '__main__':
                 if verbose: print '-- Missing datetime interval after ' \
                       + str(prev)
                 # add blank row(s) to replace the missing datetime
-                arr = np.insert(arr,i,np.nan,axis=0)
+                empty_row = (np.nan,) * row_length
+                arr = np.insert(arr,i,empty_row,axis=0)
                 # create new datetime and add to the array
                 new_dt = prev + timedelta(0,interval)              
                 arr[dcn][i] = new_dt.strftime("%m/%d/%Y %H:%M")
@@ -260,7 +263,7 @@ if __name__ == '__main__':
             end_train = end
         else:
             # only a portion of the input file is training data
-            train_size = int(len(arr)*(1-prediction_fraction))
+            train_size = int(L*(1-prediction_fraction))
             end_train = dateutil.parser.parse(arr[dcn][train_size], dayfirst=False)
         more_than_12_months_data = True if (end_train - start).days > 360 else False
         if prediction_file:
