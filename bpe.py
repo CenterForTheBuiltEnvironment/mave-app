@@ -241,8 +241,8 @@ if __name__ == '__main__':
 
         while i < L-1:
             i += 1
-	    if isinstance(arr[dcn][i], datetime):
-	        cur = dateutil.parser.parse(arr[dcn][i], dayfirst=False)
+            if isinstance(arr[dcn][i], datetime):
+                cur = dateutil.parser.parse(arr[dcn][i], dayfirst=False)
                 if (cur-prev).seconds%interval != 0:
                     raise Exception("Irregular datetime interval identified between " \
                       + str(prev) + " and " + str(cur) + ". This is not supported")
