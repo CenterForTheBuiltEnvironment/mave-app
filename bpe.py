@@ -242,23 +242,23 @@ if __name__ == '__main__':
 
         while i < L-1:
             i += 1
-  	    cur = dateutil.parser.parse(arr[dcn][i], dayfirst=False)
-	    if (cur-prev).seconds%interval != 0:
-	        raise Exception("Irregular datetime interval identified between " \
-	              + str(prev) + " and " + str(cur) + ". This is not supported")
-	        sys.exit(-1)
-	    if (cur-prev).seconds/interval > 1:
-	        if verbose: print '-- Missing datetime interval after ' \
-	          + str(prev)
-	        # add blank row(s) to replace the missing datetime
-		new_row = arr[i-1]
-		for j in range(1,len(arr[i])):
-		  new_row[j] = np.nan
-	        arr = np.insert(arr,i,new_row,axis=0)
-	        # create new datetime and add to the array
-	        new_dt = prev + timedelta(0,interval)              
-	        arr[dcn][i] = new_dt.strftime("%m/%d/%Y %H:%M")
-	    prev = dateutil.parser.parse(arr[dcn][i], dayfirst=False)
+            cur = dateutil.parser.parse(arr[dcn][i], dayfirst=False)
+            if (cur-prev).seconds%interval != 0:
+                raise Exception("Irregular datetime interval identified between " \
+                      + str(prev) + " and " + str(cur) + ". This is not supported")
+                sys.exit(-1)
+            if (cur-prev).seconds/interval > 1:
+                if verbose: print '-- Missing datetime interval after ' \
+                  + str(prev)
+                # add blank row(s) to replace the missing datetime
+        	new_row = arr[i-1]
+        	for j in range(1,len(arr[i])):
+        	  new_row[j] = np.nan
+                arr = np.insert(arr,i,new_row,axis=0)
+                # create new datetime and add to the array
+                new_dt = prev + timedelta(0,interval)              
+                arr[dcn][i] = new_dt.strftime("%m/%d/%Y %H:%M")
+            prev = dateutil.parser.parse(arr[dcn][i], dayfirst=False)
 
         # identify if month of year is a viable training feature
         if prediction_input_filename and not random_prediction_dataset:
