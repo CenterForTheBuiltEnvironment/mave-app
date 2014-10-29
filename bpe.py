@@ -210,11 +210,10 @@ if __name__ == '__main__':
             arr = np.genfromtxt(f, comments='#', delimiter=',',
                                      dtype=None, skip_header=len(headers)-1, names=True, missing_values='NA')
         dcn = datetime_col_name.replace(".", "")
-        L = len(arr)
         # reduce the size of the array if requested
         # (for testing a small period from one file covering a long period)
         if reduce_size:
-            arr = arr[:int(reduce_size * L)]
+            arr = arr[:int(reduce_size * len(arr))]
             
         datetimes = map(lambda d: dateutil.parser.parse(d, dayfirst=False), arr[dcn])
         start = datetimes[0]
@@ -258,7 +257,7 @@ if __name__ == '__main__':
             end_train = end
         else:
             # only a portion of the input file is training data
-            train_size = int(L*(1-prediction_fraction))
+            train_size = int(len(arr)*(1-prediction_fraction))
             end_train = dateutil.parser.parse(arr[dcn][train_size], dayfirst=False)
         more_than_12_months_data = True if (end_train - start).days > 360 else False
         if prediction_file:
