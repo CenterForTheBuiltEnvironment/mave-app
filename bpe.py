@@ -216,10 +216,10 @@ if __name__ == '__main__':
         if reduce_size:
             arr = arr[:int(reduce_size * L)]
             
-        datetimes = arr[dcn]
-        start = dateutil.parser.parse(arr[dcn][0], dayfirst=False)
-        second_val = dateutil.parser.parse(arr[dcn][1], dayfirst=False)
-        end = dateutil.parser.parse(arr[dcn][-1], dayfirst=False)
+        datetimes = map(lambda d: dateutil.parser.parse(d, dayfirst=False), arr[dcn])
+        start = datetimes[0]
+        second_val = datetimes[1]
+        end = datetimes[-1]
 
         # handle case where there is no datetime with 16 characters
         # in the input file (e.g. from 1/1/2000 00:00 to 10/9/2000 00:00
@@ -231,34 +231,26 @@ if __name__ == '__main__':
         arr = arr.astype(dtypes)
         
         # calculate the interval between datetimes
-        interval = (second_val-start).seconds
-        vals_per_hr = 3600/interval
-        assert 3600%interval==0, 'Interval between datetimes must divide evenly into an hour'
+        interval = second_val - start
+        vals_per_hr = 3600 / interval.seconds
+        assert (3600 % interval.seconds) == 0, 'Interval between datetimes must divide evenly into an hour'
+
         # check to ensure that the timedelta between datetimes is
         # uniform through out the array
-        prev = start
-        i = 0
         row_length = len(arr[0])
-
-        while i < L-1:
-            i += 1
-            cur = dateutil.parser.parse(arr[dcn][i], dayfirst=False)
-            if (cur-prev).seconds%interval != 0:
-                raise Exception("Irregular datetime interval identified between " \
-                      + str(prev) + " and " + str(cur) + ". This is not supported")
-                sys.exit(-1)
-            if (cur-prev).seconds/interval > 1:
-                if verbose: print '-- Missing datetime interval after ' \
-                  + str(prev)
-                # add blank row(s) to replace the missing datetime
-        	new_row = arr[i-1]
-        	for j in range(1,len(arr[i])):
-        	  new_row[j] = np.nan
-                arr = np.insert(arr,i,new_row,axis=0)
-                # create new datetime and add to the array
-                new_dt = prev + timedelta(0,interval)              
-                arr[dcn][i] = new_dt.strftime("%m/%d/%Y %H:%M")
-            prev = dateutil.parser.parse(arr[dcn][i], dayfirst=False)
+        diffs = np.diff(datetimes)
+        gaps = np.greater(diffs, interval)
+        gap_inds = np.nonzero(gaps)[0] # gap_inds contains the left indices of the gaps
+        for i in gap_inds:
+            gap = diffs[i]
+            gap_start = datetimes[i]
+            gap_end = datetimes[i+1]
+            if verbose: print '-- Missing datetime interval between %s and %s' % (gap_start, gap_end)
+            N = gap.seconds / interval.seconds # number of entries to add
+            for j in range(1,N):
+                new_row = np.array([(gap_start + j * interval,) + (np.nan,) * (row_length - 1)], dtype=arr.dtype)
+                arr = np.append(arr, new_row)
+        arr = np.sort(arr, order=dcn)
 
         # identify if month of year is a viable training feature
         if prediction_input_filename and not random_prediction_dataset:
