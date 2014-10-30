@@ -214,8 +214,14 @@ if __name__ == '__main__':
         # (for testing a small period from one file covering a long period)
         if reduce_size:
             arr = arr[:int(reduce_size * len(arr))]
-            
-        datetimes = map(lambda d: dateutil.parser.parse(d, dayfirst=False), arr[dcn])
+        
+	try: 
+	    datetimes = map(lambda d: datetime.strptime(d, "%m/%d/%Y %H:%M"), arr[dcn])
+	except ValueError:
+	    if verbose: 
+                print "Datetime is not in standard format (%m/%d/%y %H:%M), using slower dateutil.parser to parse"
+	    datetimes = map(lambda d: dateutil.parser.parse(d, dayfirst=False), arr[dcn])
+
         start = datetimes[0]
         second_val = datetimes[1]
         end = datetimes[-1]
