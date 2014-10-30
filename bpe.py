@@ -247,9 +247,13 @@ if __name__ == '__main__':
             if verbose: print '-- Missing datetime interval between %s and %s' % (gap_start, gap_end)
             N = gap.seconds / interval.seconds # number of entries to add
             for j in range(1,N):
-                new_row = np.array([(gap_start + j * interval,) + (np.nan,) * (row_length - 1)], dtype=arr.dtype)
+		new_dt = gap_start + j*interval
+                new_row = np.array([(new_dt,) + (np.nan,) * (row_length - 1)], dtype=arr.dtype)
                 arr = np.append(arr, new_row)
-        arr = np.sort(arr, order=dcn)
+                datetimes = np.append(datetimes, new_dt) 
+	pdb.set_trace()
+	datetimes_ind = np.argsort(datetimes) # returns indices that would sort datetimes
+	arr = arr[datetimes_ind] # sorts arr by sorted datetimes object indices
 
         # identify if month of year is a viable training feature
         if prediction_input_filename and not random_prediction_dataset:
