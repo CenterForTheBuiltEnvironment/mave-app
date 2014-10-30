@@ -1,9 +1,0 @@
-In order of time required:
-) Test using nans for values in the regressors
-) Test files with additional weather data (e.g. wetbulb for chiller efficiency, rain (occupancy impact), etc.)
-) Tidy up code, move preprocessing and date processing in new functions/files
-) Double check the parameter value ranges for each regressor
-) Test with no weather data (use http://open.enernoc.com/data/) - longer term, automate this process.
-) Consider weighting more recent data as more important using sampling (for multi year datasets)
-) Build an hourweekday bin 'regressor' (as a backup in case the other regressors fail)
-)
