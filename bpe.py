@@ -251,7 +251,6 @@ if __name__ == '__main__':
                 new_row = np.array([(new_dt,) + (np.nan,) * (row_length - 1)], dtype=arr.dtype)
                 arr = np.append(arr, new_row)
                 datetimes = np.append(datetimes, new_dt) 
-	pdb.set_trace()
 	datetimes_ind = np.argsort(datetimes) # returns indices that would sort datetimes
 	arr = arr[datetimes_ind] # sorts arr by sorted datetimes object indices
 
