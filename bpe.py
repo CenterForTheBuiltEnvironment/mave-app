@@ -26,8 +26,8 @@ if __name__ == '__main__':
                         help="filename containing input prediction data")
     parser.add_argument("-po", "--prediction_output_filename", default='Prediction.csv',
                         help="filename for the prediction output (default = Prediction.csv)")
-    parser.add_argument("-of","--output_folder", default='Results',
-                        help="folder name for result files (default=Results)")
+    parser.add_argument("-of","--output_folder", default='results',
+                        help="folder name for result files (default=results)")
     parser.add_argument("-n", "--n_jobs", type=int, default=1,
                         help="maximum number of jobs to run in parallel (default=1) (all cores = -1)")
     parser.add_argument("-k", "--k_folds", type=int, default=10,
