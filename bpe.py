@@ -17,57 +17,25 @@ from scipy.stats import randint as sp_randint
 from sklearn import preprocessing, cross_validation, svm, grid_search, ensemble, neighbors, dummy
 from comparison_functions import ne, nmbe, rmse, cvrmse, plot_comparison, print_overview, write_model_results
 
-if __name__ == '__main__':
-    # parse args
-    parser = argparse.ArgumentParser()
-    parser.add_argument("input_file", 
-                        help="filename for input data - REQUIRED ")
-    parser.add_argument("-pi", "--prediction_input_filename",
-                        help="filename containing input prediction data")
-    parser.add_argument("-po", "--prediction_output_filename", default='Prediction.csv',
-                        help="filename for the prediction output (default = Prediction.csv)")
-    parser.add_argument("-of","--output_folder", default='results',
-                        help="folder name for result files (default=results)")
-    parser.add_argument("-n", "--n_jobs", type=int, default=1,
-                        help="maximum number of jobs to run in parallel (default=1) (all cores = -1)")
-    parser.add_argument("-k", "--k_folds", type=int, default=10,
-                        help="number of folds used to cross-validate (default=10)")
-    parser.add_argument("-c", "--comp_time", type=float, default=1.0,
-                        help=" approx linear scalar for comp time spent performing random grid search (default=1.0)")
-    parser.add_argument("-pf", "--prediction_fraction", type=float, default=0.33,
-                        help="if no prediction file is given, fraction of the input file to use for prediction purposes (default=0.33)")
-    parser.add_argument("-rs", "--reduce_size", type=float, default=None,
-                        help="reduce the size of the input file data to analyze (useful to test model fit on just part of a file). e.g. -rs 0.25 uses half the first 25% of the file")    
-    parser.add_argument("-rps", "--random_prediction_dataset", action="store_true",
-                        help="chooses the validation set randomly, instead of from file end")
-    parser.add_argument("-mmn", "--min_max_normalization", action="store_true", default=False,
-                        help="normalize the data to a range of 2 about 0, instead of mean & std. dev")
-    parser.add_argument("-nv", "--n_vals_in_past_day", type=int, default=2,
-                        help="number of values (equal time intervals) in past day to use as additional input feature (default=2)")
-    parser.add_argument("-hol", "--holidays_flag", action="store_false", default=True,
-                        help="do not use holidays as an input feature")
-    parser.add_argument("-j", "--join_holidays", action="store_true", default=False,
-                        help="join holidays with weekday input feature, (i.e. do not use as separate feature)")
-    parser.add_argument("-mth", "--month_flag", action="store_false", default=True,
-                        help="do not use month as an input feature")
-    parser.add_argument("-knr", "--knr_flag", action="store_true", default=False,
-                        help=" use k neighbours regression")
-    parser.add_argument("-svr", "--svr_flag", action="store_true", default=False,
-                        help=" use support vector regression")
-    parser.add_argument("-rfr", "--rfr_flag", action="store_false", default=True,
-                        help="do not use random forest regression")
-    parser.add_argument("-gbr", "--gbr_flag", action="store_true", default=False,
-                        help="use gradient boosting regression")
-    parser.add_argument("-etr", "--etr_flag", action="store_false", default=True,
-                        help="do not use extra trees regression")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="increase output verbosity")
-    parser.add_argument("-s", "--save", action="store_true",
-                        help="save detailed results")
-    parser.add_argument("-p", "--plot", action="store_true",
-                        help="plot training and validation results")
-    args = parser.parse_args()
+def process_headers(f, datetime_col_name):
+    # reads up to the first 100 lines of a file and returns
+    # the headers, and the country in which the building is located
+    headers =[]
+    line = 0
+    country = None
+    r = csv.reader(f, delimiter=',')
+    for _ in range(100):
+        row = r.next()
+        headers.append(row)
+        for i, val in enumerate(row):
+            if val.lower().strip() == 'country':
+                row = r.next()
+                headers.append(row)
+                country = row[i]
+        if row[0] == datetime_col_name: break
+    return headers, country
 
+def bpe(args):
     # general parameters
     ## define column names for the target data
     targetColNames = ['wbelectricity.kWh'] # currently this tool only predicts whole building elec
@@ -153,29 +121,6 @@ if __name__ == '__main__':
     # list to contain each trained models
     models = []
     
-    def process_headers(fp):
-        # reads up to the first 100 lines of a file and returns
-        # the headers, and the country in which the building is located
-        headers =[]
-        line = 0
-        country = None
-        with open(fp, 'Ur') as f:
-            r = csv.reader(f, delimiter=',')
-            while line <100: 
-                row = r.next()
-                headers.append(row)
-                for i, val in enumerate(row):
-                    if val.lower().strip() == 'country':
-                        row = r.next()
-                        headers.append(row)
-                        country = row[i]
-                if row[0] == datetime_col_name: break
-                line +=1
-            if country == None:
-                raise Exception("The country could not be identified from the input file header lines")
-                sys.exit(-1)
-        return headers, country
-
     def process_datetime(dt_as_string, use_month):
         # takes a string, converts it to a datetime,
         # and returns a tuple of minute, hour, weekday, holiday, and (month)
@@ -215,12 +160,12 @@ if __name__ == '__main__':
         if reduce_size:
             arr = arr[:int(reduce_size * len(arr))]
         
-	try: 
-	    datetimes = map(lambda d: datetime.strptime(d, "%m/%d/%Y %H:%M"), arr[dcn])
-	except ValueError:
-	    if verbose: 
+        try: 
+	          datetimes = map(lambda d: datetime.strptime(d, "%m/%d/%Y %H:%M"), arr[dcn])
+        except ValueError:
+            if verbose: 
                 print "Datetime is not in standard format (%m/%d/%y %H:%M), using slower dateutil.parser to parse"
-	    datetimes = map(lambda d: dateutil.parser.parse(d, dayfirst=False), arr[dcn])
+            datetimes = map(lambda d: dateutil.parser.parse(d, dayfirst=False), arr[dcn])
 
         start = datetimes[0]
         second_val = datetimes[1]
@@ -253,12 +198,12 @@ if __name__ == '__main__':
             if verbose: print '-- Missing datetime interval between %s and %s' % (gap_start, gap_end)
             N = gap.seconds / interval.seconds # number of entries to add
             for j in range(1,N):
-		new_dt = gap_start + j*interval
+                new_dt = gap_start + j*interval
                 new_row = np.array([(new_dt,) + (np.nan,) * (row_length - 1)], dtype=arr.dtype)
                 arr = np.append(arr, new_row)
                 datetimes = np.append(datetimes, new_dt) 
-	datetimes_ind = np.argsort(datetimes) # returns indices that would sort datetimes
-	arr = arr[datetimes_ind] # sorts arr by sorted datetimes object indices
+                datetimes_ind = np.argsort(datetimes) # returns indices that would sort datetimes
+            arr = arr[datetimes_ind] # sorts arr by sorted datetimes object indices
 
         # identify if month of year is a viable training feature
         if prediction_input_filename and not random_prediction_dataset:
@@ -303,7 +248,7 @@ if __name__ == '__main__':
                     
         # remove any row with missing data
         if verbose: print "-- Removing training examples with missing values"
-	d = d[~np.isnan(d).any(axis=1)]
+        d = d[~np.isnan(d).any(axis=1)]
         # split into input and target arrays
         inputData, targetData = np.hsplit(d, np.array([split]))        
         return inputData, targetData, headers, arr[dcn], use_month
@@ -332,8 +277,13 @@ if __name__ == '__main__':
     print "\n...making prediction - please wait...\n"
     if verbose: print "\n=== Processing input file ==="
     
-    headers, country = process_headers(fp)
-    if country == 'us' and holidays_flag:
+    f = open(fp, 'Ur')
+    headers, country = process_headers(f, datetime_col_name)
+
+    if country == None:
+        raise Exception("The country could not be identified from the input file header lines")
+        sys.exit(-1)
+    elif country == 'us' and holidays_flag:
         with open(os.path.join('Holidays','USFederalHolidays.p'), 'r') as fh:
             holidays = pickle.load(fh)
     else:
@@ -512,3 +462,56 @@ if __name__ == '__main__':
     if plot and not prediction_input_filename: plot_comparison(out_test, y_test)
 
     print "\nDone!\n"
+
+if __name__ == '__main__':
+    # parse args
+    parser = argparse.ArgumentParser()
+    parser.add_argument("input_file", 
+                        help="filename for input data - REQUIRED ")
+    parser.add_argument("-pi", "--prediction_input_filename",
+                        help="filename containing input prediction data")
+    parser.add_argument("-po", "--prediction_output_filename", default='Prediction.csv',
+                        help="filename for the prediction output (default = Prediction.csv)")
+    parser.add_argument("-of","--output_folder", default='results',
+                        help="folder name for result files (default=results)")
+    parser.add_argument("-n", "--n_jobs", type=int, default=1,
+                        help="maximum number of jobs to run in parallel (default=1) (all cores = -1)")
+    parser.add_argument("-k", "--k_folds", type=int, default=10,
+                        help="number of folds used to cross-validate (default=10)")
+    parser.add_argument("-c", "--comp_time", type=float, default=1.0,
+                        help=" approx linear scalar for comp time spent performing random grid search (default=1.0)")
+    parser.add_argument("-pf", "--prediction_fraction", type=float, default=0.33,
+                        help="if no prediction file is given, fraction of the input file to use for prediction purposes (default=0.33)")
+    parser.add_argument("-rs", "--reduce_size", type=float, default=None,
+                        help="reduce the size of the input file data to analyze (useful to test model fit on just part of a file). e.g. -rs 0.25 uses half the first 25% of the file")    
+    parser.add_argument("-rps", "--random_prediction_dataset", action="store_true",
+                        help="chooses the validation set randomly, instead of from file end")
+    parser.add_argument("-mmn", "--min_max_normalization", action="store_true", default=False,
+                        help="normalize the data to a range of 2 about 0, instead of mean & std. dev")
+    parser.add_argument("-nv", "--n_vals_in_past_day", type=int, default=2,
+                        help="number of values (equal time intervals) in past day to use as additional input feature (default=2)")
+    parser.add_argument("-hol", "--holidays_flag", action="store_false", default=True,
+                        help="do not use holidays as an input feature")
+    parser.add_argument("-j", "--join_holidays", action="store_true", default=False,
+                        help="join holidays with weekday input feature, (i.e. do not use as separate feature)")
+    parser.add_argument("-mth", "--month_flag", action="store_false", default=True,
+                        help="do not use month as an input feature")
+    parser.add_argument("-knr", "--knr_flag", action="store_true", default=False,
+                        help=" use k neighbours regression")
+    parser.add_argument("-svr", "--svr_flag", action="store_true", default=False,
+                        help=" use support vector regression")
+    parser.add_argument("-rfr", "--rfr_flag", action="store_false", default=True,
+                        help="do not use random forest regression")
+    parser.add_argument("-gbr", "--gbr_flag", action="store_true", default=False,
+                        help="use gradient boosting regression")
+    parser.add_argument("-etr", "--etr_flag", action="store_false", default=True,
+                        help="do not use extra trees regression")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="increase output verbosity")
+    parser.add_argument("-s", "--save", action="store_true",
+                        help="save detailed results")
+    parser.add_argument("-p", "--plot", action="store_true",
+                        help="plot training and validation results")
+    args = parser.parse_args()
+
+    bpe(args)
