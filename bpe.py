@@ -20,7 +20,7 @@ from comparison_functions import ne, nmbe, rmse, cvrmse, plot_comparison, print_
 def process_headers(f, datetime_col_name):
     # reads up to the first 100 lines of a file and returns
     # the headers, and the country in which the building is located
-    headers =[]
+    headers = []
     line = 0
     country = None
     r = csv.reader(f, delimiter=',')
@@ -93,6 +93,7 @@ def bpe(args):
     # for optimal paramter values for each regression model
     # reasonable results for values >= 0.1, recommended 1 (or greater)
     comp_time = args.comp_time
+    global verbose
     verbose = args.verbose
 
     # define input file with training data
@@ -150,10 +151,9 @@ def bpe(args):
     # list to contain each trained models
     models = []
     
-    def process_input_data(fp, force_month=False, prediction_file=False): 
-        with open(fp, 'Ur')  as f:
-            arr = np.genfromtxt(f, comments='#', delimiter=',',
-                                     dtype=None, skip_header=len(headers)-1, names=True, missing_values='NA')
+    def process_input_data(f, force_month=False, prediction_file=False): 
+        arr = np.genfromtxt(f, comments='#', delimiter=',',
+              dtype=None, skip_header=len(headers)-1, names=True, missing_values='NA')
         dcn = datetime_col_name.replace(".", "")
         # reduce the size of the array if requested
         # (for testing a small period from one file covering a long period)
@@ -289,8 +289,9 @@ def bpe(args):
             holidays = pickle.load(fh)
     else:
         holidays = []
-
-    X, y, headers, datetimes, force_month = process_input_data(fp)
+ 
+    f.seek(0) # rewind the file so we don't have to open it again
+    X, y, headers, datetimes, force_month = process_input_data(f)
     y = np.ravel(y)
     if verbose: print "-- Using " + str(X.shape[1]) + " input features"
     if verbose: print "-- " + str(X.shape[1]-(n_vals_in_past_day+1)) + \
@@ -340,56 +341,63 @@ def bpe(args):
     if verbose: print " and evaluating model fit using k-fold cross validation"
 
     param_dist = {"strategy": ['mean', 'median']}
-    models.append(trainer(dummy.DummyRegressor(),
-                          "dummy", param_dist,4/comp_time))
+    models.append(trainer(dummy.DummyRegressor(), "dummy", param_dist, 4 / comp_time))
     
-    param_dist = {"p": [1,2],
-                  "n_neighbors": sp_randint(6, 40),
-                  "leaf_size": np.logspace(1, 2.5, 1000)}        
-    if knr_flag: models.append(trainer(neighbors.KNeighborsRegressor(),
-                                            "k neighbours", param_dist,
-                                            50))
+    param_dist = {
+        "p": [1,2],
+        "n_neighbors": sp_randint(6, 40),
+        "leaf_size": np.logspace(1, 2.5, 1000)
+    }
+    if knr_flag: models.append(trainer(neighbors.KNeighborsRegressor(), "k neighbours", param_dist, 50))
     # note: probably don't need that many iterations for knr (total approx 200?
     # alos looks like p=1 always performs poorer than p=2 for this type of data
     
-    param_dist = {"C": np.logspace(-3, 1, 1000),
-                  "epsilon": np.logspace(-3, 0.5, 1000),
-                  "degree": [2,3,4],
-                  "gamma": np.logspace(-3, 2, 1000),
-                  "max_iter": [20000]}
-    if svr_flag: models.append(trainer(svm.SVR(),
-                                            "support vector", param_dist,
-                                            5))
+    param_dist = {
+        "C": np.logspace(-3, 1, 1000),
+        "epsilon": np.logspace(-3, 0.5, 1000),
+        "degree": [2,3,4],
+        "gamma": np.logspace(-3, 2, 1000),
+        "max_iter": [20000]
+    }
+    if svr_flag: 
+        t = trainer(svm.SVR(), "support vector", param_dist, 5)
+        models.append(t)
     
-    param_dist = {"max_depth": [4, 5, 6, 7, 8, 9, 10, None],
-                  "max_features": sp_randint(3, X.shape[1]+1),
-                  "min_samples_split": sp_randint(5, 500),
-                  "min_samples_leaf": sp_randint(5, 500),
-                  "bootstrap": [True,False]}
-    if rfr_flag: models.append(trainer(ensemble.RandomForestRegressor(),
-                                            "random forest", param_dist,
-                                            200))
+    param_dist = {
+        "max_depth": [4, 5, 6, 7, 8, 9, 10, None],
+        "max_features": sp_randint(3, X.shape[1]+1),
+        "min_samples_split": sp_randint(5, 500),
+        "min_samples_leaf": sp_randint(5, 500),
+        "bootstrap": [True,False]
+    }
+    if rfr_flag: 
+        t = trainer(ensemble.RandomForestRegressor(), "random forest", param_dist, 200)
+        models.append(t)
 
-    param_dist = {"max_depth": [4, 5, 6, 7, 8, 9, 10, None],
-                  "n_estimators": np.logspace(1.5, 4, 1000).astype(int),
-                  "max_features": sp_randint(3, X.shape[1]+1),
-                  "min_samples_split": sp_randint(5, 50),
-                  "min_samples_leaf": sp_randint(5, 50),
-                  "subsample": [0.8, 1.0],
-                  "learning_rate": [0.05, 0.1, 0.2, 0.5]}    
-    if gbr_flag: models.append(trainer(ensemble.GradientBoostingRegressor(),
-                                            "gradiant boosting", param_dist,
-                                            50))
+    param_dist = {
+        "max_depth": [4, 5, 6, 7, 8, 9, 10, None],
+        "n_estimators": np.logspace(1.5, 4, 1000).astype(int),
+        "max_features": sp_randint(3, X.shape[1]+1),
+        "min_samples_split": sp_randint(5, 50),
+        "min_samples_leaf": sp_randint(5, 50),
+        "subsample": [0.8, 1.0],
+        "learning_rate": [0.05, 0.1, 0.2, 0.5]
+    }
+    if gbr_flag: 
+        t = trainer(ensemble.GradientBoostingRegressor(), "gradiant boosting", param_dist, 50)
+        models.append(t)
     
-    param_dist = {"max_depth": [4, 5, 6, 7, 8, 9, 10, None],
-                  "n_estimators": sp_randint(5, 50),
-                  "max_features": sp_randint(3, X.shape[1]+1),
-                  "min_samples_split": sp_randint(5, 50),
-                  "min_samples_leaf": sp_randint(5, 50),
-                  "bootstrap": [True,False]}
-    if etr_flag: models.append(trainer(ensemble.ExtraTreesRegressor(),
-                                            "extra trees", param_dist,
-                                            200))
+    param_dist = {
+        "max_depth": [4, 5, 6, 7, 8, 9, 10, None],
+        "n_estimators": sp_randint(5, 50),
+        "max_features": sp_randint(3, X.shape[1]+1),
+        "min_samples_split": sp_randint(5, 50),
+        "min_samples_leaf": sp_randint(5, 50),
+        "bootstrap": [True,False]
+    }
+    if etr_flag: 
+        t = trainer(ensemble.ExtraTreesRegressor(), "extra trees", param_dist, 200)
+        models.append(t)
 
     if verbose: print "\n=== Finding best regressor ==="
     best_model = []
