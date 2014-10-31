@@ -35,6 +35,35 @@ def process_headers(f, datetime_col_name):
         if row[0] == datetime_col_name: break
     return headers, country
 
+def process_datetime(dt_as_string, use_month, join_holidays, holidays_flag):
+    # takes a string, converts it to a datetime,
+    # and returns a tuple of minute, hour, weekday, holiday, and (month)
+    dt = dateutil.parser.parse(dt_as_string, dayfirst=False)
+    w = float(dt.weekday())
+    if join_holidays:
+        if dt.date() in holidays:
+            w = 7.0 # weekday is an int in range 0-6, 7 indicates a holiday
+    else:
+        if dt.date() in holidays:
+            hol = 3.0 # this day is a holiday
+        elif (dt - timedelta(1,0)).date() in holidays:
+            hol = 1.0 # previous day was a holiday
+        elif (dt + timedelta(1,0)).date() in holidays:
+            hol = 2.0 # next day is a holiday                
+        else:
+            hol = 0.0 # this day is not near a holiday
+    if holidays_flag and not join_holidays:
+        if use_month:
+            rv = float(dt.minute), float(dt.hour), w, hol, float(dt.month)
+        else:
+            rv = float(dt.minute), float(dt.hour), w, hol
+    else:
+        if use_month:
+            rv = float(dt.minute), float(dt.hour), w, float(dt.month)
+        else:
+            rv = float(dt.minute), float(dt.hour), w
+    return rv
+
 def bpe(args):
     # general parameters
     ## define column names for the target data
@@ -121,35 +150,6 @@ def bpe(args):
     # list to contain each trained models
     models = []
     
-    def process_datetime(dt_as_string, use_month):
-        # takes a string, converts it to a datetime,
-        # and returns a tuple of minute, hour, weekday, holiday, and (month)
-        dt = dateutil.parser.parse(dt_as_string, dayfirst=False)
-        w = float(dt.weekday())
-        if join_holidays:
-            if dt.date() in holidays:
-                w = 7.0 # weekday is an int in range 0-6, 7 indicates a holiday
-        else:
-            if dt.date() in holidays:
-                hol = 3.0 # this day is a holiday
-            elif (dt - timedelta(1,0)).date() in holidays:
-                hol = 1.0 # previous day was a holiday
-            elif (dt + timedelta(1,0)).date() in holidays:
-                hol = 2.0 # next day is a holiday                
-            else:
-                hol = 0.0 # this day is not near a holiday
-        if holidays_flag and not join_holidays:
-            if use_month:
-                rv = float(dt.minute), float(dt.hour), w, hol, float(dt.month)
-            else:
-                rv = float(dt.minute), float(dt.hour), w, hol
-        else:
-            if use_month:
-                rv = float(dt.minute), float(dt.hour), w, float(dt.month)
-            else:
-                rv = float(dt.minute), float(dt.hour), w
-        return rv
-
     def process_input_data(fp, force_month=False, prediction_file=False): 
         with open(fp, 'Ur')  as f:
             arr = np.genfromtxt(f, comments='#', delimiter=',',
@@ -221,7 +221,7 @@ def bpe(args):
             
         if verbose: print "-- Generating training features from datetimes"
         vectorized_process_datetime = np.vectorize(process_datetime)
-        d = np.column_stack(vectorized_process_datetime(arr[dcn], use_month))  
+        d = np.column_stack(vectorized_process_datetime(arr[dcn], use_month, join_holidays, holidays_flag))
 
         # add other selected input features if present in textfile
         if verbose: print "-- Adding other input data as training features"    
@@ -280,6 +280,7 @@ def bpe(args):
     f = open(fp, 'Ur')
     headers, country = process_headers(f, datetime_col_name)
 
+    global holidays
     if country == None:
         raise Exception("The country could not be identified from the input file header lines")
         sys.exit(-1)
