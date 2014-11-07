@@ -35,10 +35,8 @@ def process_headers(f, datetime_col_name):
         if row[0] == datetime_col_name: break
     return headers, country
 
-def process_datetime(dt_as_string, use_month, join_holidays, holidays_flag):
-    # takes a string, converts it to a datetime,
-    # and returns a tuple of minute, hour, weekday, holiday, and (month)
-    dt = dateutil.parser.parse(dt_as_string, dayfirst=False)
+def process_datetime(dt, use_month, join_holidays, holidays_flag):
+    # takes a datetime and returns a tuple of minute, hour, weekday, holiday, and (month)
     w = float(dt.weekday())
     if join_holidays:
         if dt.date() in holidays:
@@ -161,10 +159,10 @@ def bpe(args):
             arr = arr[:int(reduce_size * len(arr))]
         
         try: 
-	          datetimes = map(lambda d: datetime.strptime(d, "%m/%d/%Y %H:%M"), arr[dcn])
+	    datetimes = map(lambda d: datetime.strptime(d, "%m/%d/%y %H:%M"), arr[dcn])
         except ValueError:
             if verbose: 
-                print "Datetime is not in standard format (%m/%d/%y %H:%M), using slower dateutil.parser to parse"
+                print "--Datetime is not in standard format (%m/%d/%y %H:%M), using slower dateutil.parser to parse"
             datetimes = map(lambda d: dateutil.parser.parse(d, dayfirst=False), arr[dcn])
 
         start = datetimes[0]
@@ -204,6 +202,7 @@ def bpe(args):
                 datetimes = np.append(datetimes, new_dt) 
                 datetimes_ind = np.argsort(datetimes) # returns indices that would sort datetimes
             arr = arr[datetimes_ind] # sorts arr by sorted datetimes object indices
+            datetimes = datetimes[datetimes_ind] # sorts datetimes
 
         # identify if month of year is a viable training feature
         if prediction_input_filename and not random_prediction_dataset:
@@ -221,7 +220,7 @@ def bpe(args):
             
         if verbose: print "-- Generating training features from datetimes"
         vectorized_process_datetime = np.vectorize(process_datetime)
-        d = np.column_stack(vectorized_process_datetime(arr[dcn], use_month, join_holidays, holidays_flag))
+        d = np.column_stack(vectorized_process_datetime(datetimes, use_month, join_holidays, holidays_flag))
 
         # add other selected input features if present in textfile
         if verbose: print "-- Adding other input data as training features"    
