@@ -1,21 +1,25 @@
 """
 Building Energy Prediction
 
-This software reads an input file (a required argument) containing buidling energy data in a format
-similar to example file. It then trains a model and estimates the error associated
+This software reads an input file (a required argument) containing 
+buidling energy data in a format similar to example file. 
+It then trains a model and estimates the error associated
 with predictions using the model.
 
 @author Paul Raftery <p.raftery@berkeley.edu>
 """
 
 import pdb
-import os, csv, sys, pickle, argparse, time
+import os, csv, sys, pickle, argparse, time, logging
 import dateutil.parser
 import numpy as np
 from datetime import datetime, date, timedelta
 from scipy.stats import randint as sp_randint
-from sklearn import preprocessing, cross_validation, svm, grid_search, ensemble, neighbors, dummy
-from comparison_functions import ne, nmbe, rmse, cvrmse, plot_comparison, print_overview, write_model_results
+from sklearn import preprocessing, cross_validation, svm, grid_search, \
+		ensemble, neighbors, dummy
+from comparison_functions import ne, nmbe, rmse, cvrmse, plot_comparison,\
+		print_overview, write_model_results
+
 
 def process_headers(f, datetime_col_name):
     # reads up to the first 100 lines of a file and returns
@@ -36,7 +40,8 @@ def process_headers(f, datetime_col_name):
     return headers, country
 
 def process_datetime(dt, use_month, join_holidays, holidays_flag):
-    # takes a datetime and returns a tuple of minute, hour, weekday, holiday, and (month)
+	# takes a datetime and returns a tuple of:
+	# minute, hour, weekday, holiday, and (month)
     w = float(dt.weekday())
     if join_holidays:
         if dt.date() in holidays:
@@ -65,9 +70,11 @@ def process_datetime(dt, use_month, join_holidays, holidays_flag):
 def bpe(args):
     # general parameters
     ## define column names for the target data
-    targetColNames = ['wbelectricity.kWh'] # currently this tool only predicts whole building elec
+    targetColNames = ['wbelectricity.kWh'] 
+    # currently this tool only predicts whole building elec
     ### other options:
-    ##targetColNames = {'wbelectricity.kWh', 'wbgas.kBTU', 'chw.kBTU', 'hw.kBTU',
+    ##targetColNames = {'wbelectricity.kWh', 'wbgas.kBTU', 'chw.kBTU', 
+    ##           'hw.kBTU',
     ##           'steam.kBTU', 'coolingelectricity.kWh', 'coolinggas.kBTU',
     ##           'heatingelectricity.kWh', 'heatinggas.kBTU',
     ##           'ventilationelectricity.kWh', 'lightingelectricity.kWh'}
@@ -106,9 +113,11 @@ def bpe(args):
     # predict results based on a fraction taken from input training file
     prediction_fraction = args.prediction_fraction
     # input standardization to use
-    # uses mean & std dev by default, set min_max_normalization = True to force min and max range
+    # uses mean & std dev by default, 
+    # set min_max_normalization = True to force min and max range
     min_max_normalization = args.min_max_normalization
-    random_prediction_dataset = args.random_prediction_dataset # whether to randomly select, or select from file end
+    random_prediction_dataset = args.random_prediction_dataset 
+    # whether to randomly select, or select from file end
     n_vals_in_past_day = args.n_vals_in_past_day
     reduce_size = args.reduce_size
     holidays_flag = args.holidays_flag
@@ -120,7 +129,7 @@ def bpe(args):
     gbr_flag = args.gbr_flag
     etr_flag = args.etr_flag
 
-    save = args.save # saves each the main numpy objects and the trained models to files
+    save = args.save # saves each the main np objs and the models to files
     plot = args.plot # plots the prediction results   
 
     # define output folder from parameters
@@ -151,7 +160,8 @@ def bpe(args):
     
     def process_input_data(f, force_month=False, prediction_file=False): 
         arr = np.genfromtxt(f, comments='#', delimiter=',',
-              dtype=None, skip_header=len(headers)-1, names=True, missing_values='NA')
+              dtype=None, skip_header=len(headers)-1, 
+	      names=True, missing_values='NA')
         dcn = datetime_col_name.replace(".", "")
         # reduce the size of the array if requested
         # (for testing a small period from one file covering a long period)
@@ -159,10 +169,11 @@ def bpe(args):
             arr = arr[:int(reduce_size * len(arr))]
         
         try: 
-	    datetimes = map(lambda d: datetime.strptime(d, "%m/%d/%y %H:%M"), arr[dcn])
+	    datetimes = map(lambda d: datetime.strptime(d, "%m/%d/%y %H:%M"), \
+			    arr[dcn])
         except ValueError:
             if verbose: 
-                print "--Datetime is not in standard format (%m/%d/%y %H:%M), using slower dateutil.parser to parse"
+                print "-- Datetime is not in standard format (%m/%d/%y %H:%M), using slower dateutil.parser"
             datetimes = map(lambda d: dateutil.parser.parse(d, dayfirst=False), arr[dcn])
 
         start = datetimes[0]
@@ -193,7 +204,7 @@ def bpe(args):
             gap = diffs[i]
             gap_start = datetimes[i]
             gap_end = datetimes[i+1]
-            if verbose: print '-- Missing datetime interval between %s and %s' % (gap_start, gap_end)
+            logger.info("-- Missing datetime interval between %s and %s" % (gap_start, gap_end))
             N = gap.seconds / interval.seconds # number of entries to add
             for j in range(1,N):
                 new_dt = gap_start + j*interval
@@ -218,12 +229,12 @@ def bpe(args):
         else:
             use_month = True if more_than_12_months_data and month_flag else False
             
-        if verbose: print "-- Generating training features from datetimes"
+        logger.info("-- Generating training features from datetimes")
         vectorized_process_datetime = np.vectorize(process_datetime)
         d = np.column_stack(vectorized_process_datetime(datetimes, use_month, join_holidays, holidays_flag))
 
         # add other selected input features if present in textfile
-        if verbose: print "-- Adding other input data as training features"    
+        logger.info("-- Adding other input data as training features")    
         for s in inputColNames:
             if s in arr.dtype.names:
                 d = np.column_stack((d,arr[s]))
@@ -246,7 +257,7 @@ def bpe(args):
                 d = np.column_stack((d,arr[s]))
                     
         # remove any row with missing data
-        if verbose: print "-- Removing training examples with missing values"
+        logger.info("-- Removing training examples with missing values")
         d = d[~np.isnan(d).any(axis=1)]
         # split into input and target arrays
         inputData, targetData = np.hsplit(d, np.array([split]))        
@@ -255,7 +266,7 @@ def bpe(args):
     def trainer(model, name, param_dist, search_iterations):
         # trains a model to the training data
         # using a random grid search assessed using k-fold cross validation
-        if verbose: print "\n-- Training " + name + " regressors"
+        logger.info("\n-- Training " + name + " regressors")
         # scale number of iterations according to requested computation time
         search_iterations = int(search_iterations*comp_time) 
         model = grid_search.RandomizedSearchCV(model, param_distributions=param_dist,
@@ -266,15 +277,15 @@ def bpe(args):
         model.fit(X_s, y_s)
         if verbose:
             if hasattr(model.best_estimator_, 'feature_importances_'):
-                print 'Feature importances: ' + \
-                      str(model.best_estimator_.feature_importances_ ) 
+                logger.info("Feature importances: " + \
+                      str(model.best_estimator_.feature_importances_ ))
 
         
-        if verbose: print "Best score: " + str(model.best_score_)
+        logger.info("Best score: " + str(model.best_score_))
         return model
 
     print "\n...making prediction - please wait...\n"
-    if verbose: print "\n=== Processing input file ==="
+    logger.info("\n=== Processing input file ===")
     
     f = open(fp, 'Ur')
     headers, country = process_headers(f, datetime_col_name)
@@ -292,16 +303,16 @@ def bpe(args):
     f.seek(0) # rewind the file so we don't have to open it again
     X, y, headers, datetimes, force_month = process_input_data(f)
     y = np.ravel(y)
-    if verbose: print "-- Using " + str(X.shape[1]) + " input features"
-    if verbose: print "-- " + str(X.shape[1]-(n_vals_in_past_day+1)) + \
-       " are date or time related, the remainder are weather related"
-    if verbose: print "-- Using " + str(X.shape[0]) + \
-       " valid samples (i.e. no missing values)"    
+    logger.info("-- Using " + str(X.shape[1]) + " input features")
+    logger.info("-- " + str(X.shape[1]-(n_vals_in_past_day+1)) + \
+       " are date or time related, the remainder are weather related")
+    logger.info("-- Using " + str(X.shape[0]) + \
+       " valid samples (i.e. no missing values)")    
 
     if prediction_input_filename:
         # predict results from a separate file containing only input
         # data (no training data)
-        if verbose: print "\n=== Processing prediction input file ==="
+        logger.info("\n=== Processing prediction input file ===")
         X_test, y_test, headers, predict_datetimes, x = \
                 process_input_data(prediction_input_filename, force_month, prediction_file=True)
         X_test = np.array(X_test).astype(np.float)
@@ -309,7 +320,7 @@ def bpe(args):
         y_test = np.ravel(y_test)
     else:
         # create a test set from input training data file
-        # kept independent throughout the whole process
+        #i kept independent throughout the whole process
         if random_prediction_dataset:
             # randomly select        
             X, X_test, y, y_test = cross_validation.train_test_split(
@@ -322,7 +333,7 @@ def bpe(args):
             X = X[:train_size]
             y = y[:train_size]
     
-    if verbose: print "-- Normalizing training data"
+    logger.info("-- Normalizing training data")
     # standardize inputs
     if min_max_normalization:
         X_standardizer = preprocessing.MinMaxScaler().fit(X)
@@ -335,9 +346,9 @@ def bpe(args):
     X_test_s = X_standardizer.transform(X_test)
     y_test_s = y_standardizer.transform(y_test)
 
-    if verbose: print "\n=== Training multiple regression models using a randomized"
-    if verbose: print " grid search to identify the best parameters for each regressor"
-    if verbose: print " and evaluating model fit using k-fold cross validation"
+    logger.info("\n=== Training multiple regression models using a randomized")
+    logger.info(" grid search to identify the best parameters for each regressor")
+    logger.info(" and evaluating model fit using k-fold cross validation")
 
     param_dist = {"strategy": ['mean', 'median']}
     models.append(trainer(dummy.DummyRegressor(), "dummy", param_dist, 4 / comp_time))
@@ -398,27 +409,27 @@ def bpe(args):
         t = trainer(ensemble.ExtraTreesRegressor(), "extra trees", param_dist, 200)
         models.append(t)
 
-    if verbose: print "\n=== Finding best regressor ==="
+    logger.info("\n=== Finding best regressor ===")
     best_model = []
     for m in models:
         if not best_model or best_model.best_score_ < m.best_score_: best_model = m
-    if verbose: print "-- Predicting results for training and test set using best regressor"
+    logger.info("-- Predicting results for training and test set using best regressor")
     out_s = best_model.predict(X_s)
     out = y_standardizer.inverse_transform(out_s)
     out_test_s = best_model.predict(X_test_s)
     out_test = y_standardizer.inverse_transform(out_test_s)
 
     if verbose:
-        print "\n=== Evaluating results ==="
-        print "-- Best model parameters"
-        print best_model.best_estimator_
-        print "\n-- Best model evaluation on entire training dataset"
-        print "Score: " + str(best_model.score(X_s, y_s))
-        print_overview(y,out)
+        logger.info("\n=== Evaluating results ===")
+        logger.info("-- Best model parameters")
+        logger.info(best_model.best_estimator_)
+        logger.info("\n-- Best model evaluation on entire training dataset")
+        logger.info(" Score: " + str(best_model.score(X_s, y_s)))
+        print_overview(y,out,logger)
         if not prediction_input_filename:
-            print "\n-- Best model evaluation on prediction (test) data"
-            print "Score: " + str(best_model.score(X_test_s, y_test_s))
-            print_overview(y_test,out_test)
+            logger.info("\n-- Best model evaluation on prediction (test) data")
+            logger.info(" Score: " + str(best_model.score(X_test_s, y_test_s)))
+            print_overview(y_test,out_test,logger)
 
 ##    # Write the results to a single file
 ##    if not prediction_input_filename:
@@ -440,7 +451,7 @@ def bpe(args):
 ##            fo.write('\n')
     
     if prediction_input_filename:
-        if verbose: print "\n=== Writing prediction file ==="
+        logger.info("\n=== Writing prediction file ===")
         with open(os.path.join(op,prediction_output_filename), 'w') as fo:
             headers.pop() # remove timestamp row
             for i in range(len(headers)):
@@ -521,5 +532,19 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--plot", action="store_true",
                         help="plot training and validation results")
     args = parser.parse_args()
+    
+    # set up logging to screen and file
+    logger = logging.getLogger(__name__)
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    fo = logging.FileHandler('example.log')
+    fo.setLevel(logging.INFO)
+    if args.verbose:
+        po = logging.StreamHandler()
+        po.setLevel(logging.INFO)
+    logger.addHandler(fo)
+    logger.addHandler(po)
+
+    logger.info("\nAssessing input file: " + args.input_file + "\n")
 
     bpe(args)

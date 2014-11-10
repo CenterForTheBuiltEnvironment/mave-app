@@ -40,6 +40,7 @@ def cvrmse(predicted, actual):
 def plot_comparison(predicted, actual):
     n_points = 1000
     a = np.random.randint(len(actual)-n_points)
+    a = 20010
     b = a+n_points -1
     t = range(len(predicted-actual))
     plt.figure(figsize=(20, 10))
@@ -53,17 +54,17 @@ def plot_comparison(predicted, actual):
     plt.suptitle('Prediction Data', fontsize=14, fontweight='bold')
     plt.show()
 
-def print_overview(pred, act):
+def print_overview(pred, act, logger):
     ## assess how well the model performs
-    print ' NMBE: ' + str(nmbe(pred,act)) + '%'
-    print ' CVRMSE: ' + str(cvrmse(pred,act)) + '%'
+    logger.info(' NMBE: ' + str(nmbe(pred,act)) + '%')
+    logger.info(' CVRMSE: ' + str(cvrmse(pred,act)) + '%')
     norm_errs = ne(pred,act)
-    print ' Normalized error,min :' + str(np.min(norm_errs)) + '%'
-    print ' Normalized error, 10th percentile :' + str(np.percentile(norm_errs,10)) + '%'
-    print ' Normalized error, median :' + str(np.percentile(norm_errs,50)) + '%'
-    print ' Normalized error,mean :' + str(np.mean(norm_errs)) + '%'
-    print ' Normalized error, 90th percentile :' + str(np.percentile(norm_errs,90)) + '%'
-    print ' Normalized error,max :' + str(np.max(norm_errs)) + '%'
+    logger.info(' Normalized error,min :' + str(np.min(norm_errs)) + '%')
+    logger.info(' Normalized error, 10th percentile :' + str(np.percentile(norm_errs,10)) + '%')
+    logger.info(' Normalized error, median :' + str(np.percentile(norm_errs,50)) + '%')
+    logger.info(' Normalized error,mean :' + str(np.mean(norm_errs)) + '%')
+    logger.info(' Normalized error, 90th percentile :' + str(np.percentile(norm_errs,90)) + '%')
+    logger.info(' Normalized error,max :' + str(np.max(norm_errs)) + '%')
 
 def write_model_results(models, op):
     for model in models:
