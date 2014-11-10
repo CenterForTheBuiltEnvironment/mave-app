@@ -40,7 +40,6 @@ def cvrmse(predicted, actual):
 def plot_comparison(predicted, actual):
     n_points = 1000
     a = np.random.randint(len(actual)-n_points)
-    a = 20010
     b = a+n_points -1
     t = range(len(predicted-actual))
     plt.figure(figsize=(20, 10))
