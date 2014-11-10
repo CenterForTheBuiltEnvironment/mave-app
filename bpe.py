@@ -539,12 +539,13 @@ if __name__ == '__main__':
     logger.setLevel(logging.INFO)
     fo = logging.FileHandler('example.log')
     fo.setLevel(logging.INFO)
+    logger.addHandler(fo)
+
     if args.verbose:
+	# log to screen also
         po = logging.StreamHandler()
         po.setLevel(logging.INFO)
-    logger.addHandler(fo)
-    logger.addHandler(po)
-
+        logger.addHandler(po)
     logger.info("\nAssessing input file: " + args.input_file + "\n")
 
     bpe(args)
