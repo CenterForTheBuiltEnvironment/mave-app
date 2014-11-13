@@ -12,6 +12,7 @@ import pdb
 import os, csv, sys, pickle, argparse, time
 import dateutil.parser
 import numpy as np
+import estimators 
 from datetime import datetime, date, timedelta
 from scipy.stats import randint as sp_randint
 from sklearn import preprocessing, cross_validation, svm, grid_search, ensemble, neighbors, dummy
@@ -222,6 +223,7 @@ def bpe(args):
         if verbose: print "-- Generating training features from datetimes"
         vectorized_process_datetime = np.vectorize(process_datetime)
         d = np.column_stack(vectorized_process_datetime(arr[dcn], use_month, join_holidays, holidays_flag))
+        # minute, hour, weekday, holiday, and (month)
 
         # add other selected input features if present in textfile
         if verbose: print "-- Adding other input data as training features"    
@@ -245,7 +247,7 @@ def bpe(args):
         for s in targetColNames:
             if s in arr.dtype.names:
                 d = np.column_stack((d,arr[s]))
-                    
+
         # remove any row with missing data
         if verbose: print "-- Removing training examples with missing values"
         d = d[~np.isnan(d).any(axis=1)]
@@ -253,7 +255,7 @@ def bpe(args):
         inputData, targetData = np.hsplit(d, np.array([split]))        
         return inputData, targetData, headers, arr[dcn], use_month
 
-    def trainer(model, name, param_dist, search_iterations):
+    def trainer(model, name, param_dist, search_iterations, standardized=True):
         # trains a model to the training data
         # using a random grid search assessed using k-fold cross validation
         if verbose: print "\n-- Training " + name + " regressors"
@@ -264,7 +266,11 @@ def bpe(args):
                                                n_jobs=n_jobs,
                                                cv=k,
                                                verbose=verbose)
-        model.fit(X_s, y_s)
+        if standardized:
+            model.fit(X_s, y_s)
+        else:
+            model.fit(X, y)
+
         if verbose:
             if hasattr(model.best_estimator_, 'feature_importances_'):
                 print 'Feature importances: ' + \
@@ -342,7 +348,10 @@ def bpe(args):
 
     param_dist = {"strategy": ['mean', 'median']}
     models.append(trainer(dummy.DummyRegressor(), "dummy", param_dist, 4 / comp_time))
-    
+
+    param_dist = {"strategy": ['mean', 'median']}
+    models.append(trainer(estimators.HourWeekdayBinModel(), "binned model", param_dist, 4 / comp_time, standardized=False))
+
     param_dist = {
         "p": [1,2],
         "n_neighbors": sp_randint(6, 40),
@@ -362,7 +371,7 @@ def bpe(args):
     if svr_flag: 
         t = trainer(svm.SVR(), "support vector", param_dist, 5)
         models.append(t)
-    
+
     param_dist = {
         "max_depth": [4, 5, 6, 7, 8, 9, 10, None],
         "max_features": sp_randint(3, X.shape[1]+1),
@@ -450,7 +459,7 @@ def bpe(args):
             fo.write(datetime_col_name + ',load,\n')
             for i in range(len(predict_datetimes)):
                 fo.write(str(predict_datetimes[i]) + ',' + str(out_test[i]) + ',\n')
-    
+
     if save:
         write_model_results(models, op)
         data_folder = os.path.join(op,'Data')
