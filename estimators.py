@@ -1,16 +1,22 @@
 import numpy as np
 from sklearn.dummy import DummyRegressor
 
+def normalize(x):
+    # normalize numpy array to [0, 1]
+    mi = np.min(x) 
+    x -= np.sign(mi) * np.abs(mi)
+    x /= np.max(x)
+    return x
+
 class HourWeekdayBinModel(DummyRegressor):
 
     def __init__(self, strategy='mean'):
-        self._model = None
         self.strategy = strategy
 
     def fit(self, X, y):
         a = np.zeros((24, 7))
-        hours = X[:, 1]
-        weekdays = X[:, 2]
+        hours = 23 * normalize(X[:, 1])
+        weekdays = 6 * normalize(X[:, 2])
 
         if self.strategy == 'mean':
             counts = a.copy()
@@ -41,7 +47,7 @@ class HourWeekdayBinModel(DummyRegressor):
         return self
 
     def predict(self, X):
-        hours = X[:, 1]
-        weekdays = X[:, 2]
+        hours = 23 * normalize(X[:, 1])
+        weekdays = 6 * normalize(X[:, 2])
         prediction = map(lambda x: self._model[x[0], x[1]], zip(hours, weekdays))
         return np.array(prediction)

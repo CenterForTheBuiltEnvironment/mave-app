@@ -265,7 +265,7 @@ def bpe(args):
         inputData, targetData = np.hsplit(d, np.array([split]))        
         return inputData, targetData, headers, arr[dcn], use_month
 
-    def trainer(model, name, param_dist, search_iterations, standardized=True):
+    def trainer(model, name, param_dist, search_iterations):
         # trains a model to the training data
         # using a random grid search assessed using k-fold cross validation
         logger.info("\n-- Training " + name + " regressors")
@@ -276,10 +276,7 @@ def bpe(args):
                                                n_jobs=n_jobs,
                                                cv=k,
                                                verbose=verbose)
-        if standardized:
-            model.fit(X_s, y_s)
-        else:
-            model.fit(X, y)
+        model.fit(X_s, y_s)
 
         if verbose:
             if hasattr(model.best_estimator_, 'feature_importances_'):
@@ -360,7 +357,7 @@ def bpe(args):
     models.append(trainer(dummy.DummyRegressor(), "dummy", param_dist, 4 / comp_time))
 
     param_dist = {"strategy": ['mean', 'median']}
-    models.append(trainer(estimators.HourWeekdayBinModel(), "binned model", param_dist, 4 / comp_time, standardized=False))
+    models.append(trainer(estimators.HourWeekdayBinModel(), "binned model", param_dist, 4 / comp_time))
 
     param_dist = {
         "p": [1,2],
