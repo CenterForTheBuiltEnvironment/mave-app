@@ -15,8 +15,10 @@ class HourWeekdayBinModel(DummyRegressor):
 
     def fit(self, X, y):
         a = np.zeros((24, 7))
-        hours = 23 * normalize(X[:, 1])
-        weekdays = 6 * normalize(X[:, 2])
+        hours = np.copy(X[:, 1])
+        weekdays = np.copy(X[:, 2])
+        hours = 23 * normalize(hours)
+        weekdays = 6 * normalize(weekdays)
 
         if self.strategy == 'mean':
             counts = a.copy()
@@ -27,6 +29,7 @@ class HourWeekdayBinModel(DummyRegressor):
                 a[hour, day] += y[i]
 
             self._model = a / counts
+
         elif self.strategy == 'median':
 
             # this is a 3d array 
@@ -47,7 +50,9 @@ class HourWeekdayBinModel(DummyRegressor):
         return self
 
     def predict(self, X):
-        hours = 23 * normalize(X[:, 1])
-        weekdays = 6 * normalize(X[:, 2])
+        hours = np.copy(X[:, 1])
+        weekdays = np.copy(X[:, 2])
+        hours = 23 * normalize(hours)
+        weekdays = 6 * normalize(weekdays)
         prediction = map(lambda x: self._model[x[0], x[1]], zip(hours, weekdays))
         return np.array(prediction)

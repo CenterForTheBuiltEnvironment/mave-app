@@ -170,7 +170,7 @@ def bpe(args):
             arr = arr[:int(reduce_size * len(arr))]
         
         try: 
-	    datetimes = map(lambda d: datetime.strptime(d, "%m/%d/%y %H:%M"), \
+            datetimes = map(lambda d: datetime.strptime(d, "%m/%d/%y %H:%M"), \
 			    arr[dcn])
         except ValueError:
             if verbose: 
@@ -400,7 +400,7 @@ def bpe(args):
         "learning_rate": [0.05, 0.1, 0.2, 0.5]
     }
     if gbr_flag: 
-        t = trainer(ensemble.GradientBoostingRegressor(), "gradiant boosting", param_dist, 50)
+        t = trainer(ensemble.GradientBoostingRegressor(), "gradient boosting", param_dist, 50)
         models.append(t)
     
     param_dist = {
@@ -416,7 +416,7 @@ def bpe(args):
         models.append(t)
 
     logger.info("\n=== Finding best regressor ===")
-    best_model = []
+    best_model = None
     for m in models:
         if not best_model or best_model.best_score_ < m.best_score_: best_model = m
     logger.info("-- Predicting results for training and test set using best regressor")
@@ -431,58 +431,39 @@ def bpe(args):
         logger.info(best_model.best_estimator_)
         logger.info("\n-- Best model evaluation on entire training dataset")
         logger.info(" Score: " + str(best_model.score(X_s, y_s)))
-        print_overview(y,out,logger)
+        print_overview(y, out, logger)
         if not prediction_input_filename:
             logger.info("\n-- Best model evaluation on prediction (test) data")
             logger.info(" Score: " + str(best_model.score(X_test_s, y_test_s)))
-            print_overview(y_test,out_test,logger)
+            print_overview(y_test, out_test, logger)
 
-##    # Write the results to a single file
-##    if not prediction_input_filename:
-##        with open('ResultsLog.csv', 'a') as fo:
-##            fo.seek(0, 2)
-##            summary = [fp,prediction_fraction,k,comp_time,
-##                       random_prediction_dataset,min_max_normalization,
-##                       holidays_flag,join_holidays,month_flag,n_vals_in_past_day,reduce_size]
-##            summary.append(str(best_model.best_estimator_).split('(')[0])
-##            summary.append(best_model.best_score_)
-##            if prediction_input_filename:
-##                summary.append('NA - prediction only')
-##            else:
-##                summary.append(best_model.score(X_test_s, y_test_s))
-##            for m in models:
-##                summary.append(str(m.best_estimator_).split('(')[0])
-##                summary.append(m.best_score_)
-##            fo.write(','.join(map(str, summary)))
-##            fo.write('\n')
-    
     if prediction_input_filename:
         logger.info("\n=== Writing prediction file ===")
         with open(os.path.join(op,prediction_output_filename), 'w') as fo:
             headers.pop() # remove timestamp row
-            for i in range(len(headers)):
-                fo.write(','.join(map(str, headers[i])))
+            for h in headers:
+                fo.write(','.join(map(str, h)))
                 fo.write('\n')
             fo.write(datetime_col_name + ',load,\n')
-            for i in range(len(predict_datetimes)):
-                fo.write(str(predict_datetimes[i]) + ',' + str(out_test[i]) + ',\n')
+            for pd, o in zip(predict_datetimes, out_test):
+                fo.write(str(pd) + ',' + str(o) + ',\n')
 
     if save:
         write_model_results(models, op)
-        data_folder = os.path.join(op,'Data')
+        data_folder = os.path.join(op, 'Data')
         if not os.path.exists(data_folder):
             os.makedirs(data_folder)
-        np.savetxt(os.path.join(data_folder,'Training_Input.txt'), X)
-        np.savetxt(os.path.join(data_folder,'Training_Target.txt'), y)
-        np.savetxt(os.path.join(data_folder,'Normalized_Training_Input.txt'), X_s)
-        np.savetxt(os.path.join(data_folder,'Normalized_Training_Target.txt'), y_s)
-        np.savetxt(os.path.join(data_folder,'Prediction_Input.txt'), X_test)
-        np.savetxt(os.path.join(data_folder,'Prediction_Output.txt'), out_test)
-        np.savetxt(os.path.join(data_folder,'Normalized_Prediction_Input.txt'), X_test_s)
-        np.savetxt(os.path.join(data_folder,'Normalized_Prediction_Output.txt'), out_test_s)
+        np.savetxt(os.path.join(data_folder, 'Training_Input.txt'), X)
+        np.savetxt(os.path.join(data_folder, 'Training_Target.txt'), y)
+        np.savetxt(os.path.join(data_folder, 'Normalized_Training_Input.txt'), X_s)
+        np.savetxt(os.path.join(data_folder, 'Normalized_Training_Target.txt'), y_s)
+        np.savetxt(os.path.join(data_folder, 'Prediction_Input.txt'), X_test)
+        np.savetxt(os.path.join(data_folder, 'Prediction_Output.txt'), out_test)
+        np.savetxt(os.path.join(data_folder, 'Normalized_Prediction_Input.txt'), X_test_s)
+        np.savetxt(os.path.join(data_folder, 'Normalized_Prediction_Output.txt'), out_test_s)
         if not prediction_input_filename:
-            np.savetxt(os.path.join(data_folder,'Prediction_Target.txt'), y_test)
-            np.savetxt(os.path.join(data_folder,'Normalized_Prediction_Target.txt'), y_test_s)
+            np.savetxt(os.path.join(data_folder, 'Prediction_Target.txt'), y_test)
+            np.savetxt(os.path.join(data_folder, 'Normalized_Prediction_Target.txt'), y_test_s)
 
     if plot and not prediction_input_filename: plot_comparison(out_test, y_test)
 
