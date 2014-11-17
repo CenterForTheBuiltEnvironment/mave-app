@@ -356,7 +356,7 @@ def bpe(args):
     param_dist = {"strategy": ['mean', 'median']}
     models.append(trainer(dummy.DummyRegressor(), "dummy", param_dist, 4 / comp_time))
 
-    param_dist = {"strategy": ['mean', 'median']}
+    param_dist = {"strategy": ['mean', 'median', 'kernel']}
     models.append(trainer(estimators.HourWeekdayBinModel(), "binned model", param_dist, 4 / comp_time))
 
     param_dist = {
