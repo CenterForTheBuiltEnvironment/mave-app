@@ -7,6 +7,7 @@ It then trains a model and estimates the error associated
 with predictions using the model.
 
 @author Paul Raftery <p.raftery@berkeley.edu>
+@author Tyler Hoyt <thoyt@berkeley.edu>
 """
 
 import pdb
@@ -53,7 +54,7 @@ def process_datetime(dt, use_month, join_holidays, holidays_flag):
         elif (dt - timedelta(1,0)).date() in holidays:
             hol = 1.0 # previous day was a holiday
         elif (dt + timedelta(1,0)).date() in holidays:
-            hol = 2.0 # next day is a holiday                
+            hol = 2.0 # next day is a holiday
         else:
             hol = 0.0 # this day is not near a holiday
     if holidays_flag and not join_holidays:
@@ -68,20 +69,44 @@ def process_datetime(dt, use_month, join_holidays, holidays_flag):
             rv = float(dt.minute), float(dt.hour), w
     return rv
 
-def bpe(args):
+def bpe(knr_flag=False,
+        svr_flag=False,
+        rfr_flag=False,
+        gbr_flag=False,
+        etr_flag=False,
+        save=False,
+        n_jobs=-1,
+        prediction_output_filename='out.csv',
+        holidays_flag=True,
+        month_flag=False,
+        output_folder='results',
+        reduce_size=False,
+        verbose=False,
+        plot=False,
+        comp_time=0.1,
+        k_folds=10,
+        random_prediction_dataset=False,
+        join_holidays=False,
+        prediction_fraction=0.33,
+        input_file=None,
+        min_max_normalization=False,
+        n_vals_in_past_day=2,
+        prediction_input_filename=None):
+
     # general parameters
-    ## define column names for the target data
-    targetColNames = ['wbelectricity.kWh'] 
+    # define column names for the target data
+    targetColNames = ['wbelectricity.kWh']
     # currently this tool only predicts whole building elec
-    ### other options:
-    ##targetColNames = {'wbelectricity.kWh', 'wbgas.kBTU', 'chw.kBTU', 
-    ##           'hw.kBTU',
-    ##           'steam.kBTU', 'coolingelectricity.kWh', 'coolinggas.kBTU',
-    ##           'heatingelectricity.kWh', 'heatinggas.kBTU',
-    ##           'ventilationelectricity.kWh', 'lightingelectricity.kWh'}
+    # other options:
+    # targetColNames = {'wbelectricity.kWh', 'wbgas.kBTU', 'chw.kBTU', 
+    #           'hw.kBTU',
+    #           'steam.kBTU', 'coolingelectricity.kWh', 'coolinggas.kBTU',
+    #           'heatingelectricity.kWh', 'heatinggas.kBTU',
+    #           'ventilationelectricity.kWh', 'lightingelectricity.kWh'}
 
     inputColNames = ['dboat.F'] ## add other desired input features
 
+    fp = input_file
     # remove special characters
     inputColNames = [s.replace(".", "") for s in inputColNames]
     targetColNames = [s.replace(".", "") for s in targetColNames]
@@ -89,58 +114,38 @@ def bpe(args):
     datetime_col_name = 'time.LOCAL'
 
     # define run characteristics
-    n_jobs = args.n_jobs # number of cores (-1 = all cores)
     if n_jobs < -1 or n_jobs == 0:
         n_jobs = 1 # handle case where user enters an unsupported int
         print "--- Number of cores must be either -1, or any value >0 ---"
         print "--- Number of jobs reset to default (1)"
-    k = args.k_folds # number of folds used in k-fold cross validation
+    k = k_folds # number of folds used in k-fold cross validation
+
     # roughly linear scalar for comp time spent performing random grid search
     # for optimal paramter values for each regression model
     # reasonable results for values >= 0.1, recommended 1 (or greater)
-    comp_time = args.comp_time
-    global verbose
-    verbose = args.verbose
 
     # define input file with training data
-    fp = args.input_file
+    fp = input_file
+
     # define test set
     # if prediction_input_filename contains a string value
     # the model will predict results based on a new file
     # using the prediction_input_filename value as filename
-    prediction_input_filename = args.prediction_input_filename
-    prediction_output_filename = args.prediction_output_filename
     # if prediction_input_filename is None (False), the model will
     # predict results based on a fraction taken from input training file
-    prediction_fraction = args.prediction_fraction
     # input standardization to use
     # uses mean & std dev by default, 
     # set min_max_normalization = True to force min and max range
-    min_max_normalization = args.min_max_normalization
-    random_prediction_dataset = args.random_prediction_dataset 
     # whether to randomly select, or select from file end
-    n_vals_in_past_day = args.n_vals_in_past_day
-    reduce_size = args.reduce_size
-    holidays_flag = args.holidays_flag
-    join_holidays = args.join_holidays
-    month_flag = args.month_flag
-    knr_flag = args.knr_flag
-    svr_flag = args.svr_flag
-    rfr_flag = args.rfr_flag
-    gbr_flag = args.gbr_flag
-    etr_flag = args.etr_flag
-
-    save = args.save # saves each the main np objs and the models to files
-    plot = args.plot # plots the prediction results   
 
     # define output folder from parameters
-    op = os.path.join(args.output_folder)
+    op = os.path.join(output_folder)
     
     # creates a sub folder output name that is detailed summary of the
     # parameters used for these runs and saves the detailed output in
     # folder
     if save and not prediction_input_filename:
-        op = os.path.join(op,fp)
+        op = os.path.join(op, fp)
         folder = 'rs'+ str(reduce_size) + \
                  '_pf' + str(prediction_fraction) + \
                  '_rps'+ str(random_prediction_dataset)[0]
@@ -262,7 +267,7 @@ def bpe(args):
         logger.info("-- Removing training examples with missing values")
         d = d[~np.isnan(d).any(axis=1)]
         # split into input and target arrays
-        inputData, targetData = np.hsplit(d, np.array([split]))        
+        inputData, targetData = np.hsplit(d, np.array([split]))
         return inputData, targetData, headers, arr[dcn], use_month
 
     def trainer(model, name, param_dist, search_iterations):
@@ -271,7 +276,8 @@ def bpe(args):
         logger.info("\n-- Training " + name + " regressors")
         # scale number of iterations according to requested computation time
         search_iterations = int(search_iterations*comp_time) 
-        model = grid_search.RandomizedSearchCV(model, param_distributions=param_dist,
+        model = grid_search.RandomizedSearchCV(model, 
+                                               param_distributions=param_dist,
                                                n_iter=search_iterations,
                                                n_jobs=n_jobs,
                                                cv=k,
@@ -340,7 +346,7 @@ def bpe(args):
     # standardize inputs
     if min_max_normalization:
         X_standardizer = preprocessing.MinMaxScaler().fit(X)
-        y_standardizer = preprocessing.MinMaxScaler().fit(y)  
+        y_standardizer = preprocessing.MinMaxScaler().fit(y)
     else:
         X_standardizer = preprocessing.StandardScaler().fit(X)
         y_standardizer = preprocessing.StandardScaler().fit(y)
@@ -467,8 +473,6 @@ def bpe(args):
 
     if plot and not prediction_input_filename: plot_comparison(out_test, y_test)
 
-    print "\nDone!\n"
-
 if __name__ == '__main__':
     # parse args
     parser = argparse.ArgumentParser()
@@ -522,7 +526,6 @@ if __name__ == '__main__':
     
     # set up logging to screen and file
     logger = logging.getLogger(__name__)
-    logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     fo = logging.FileHandler('example.log')
     fo.setLevel(logging.INFO)
@@ -535,4 +538,4 @@ if __name__ == '__main__':
         logger.addHandler(po)
     logger.info("\nAssessing input file: " + args.input_file + "\n")
 
-    bpe(args)
+    bpe(**args.__dict__)
