@@ -206,23 +206,25 @@ def bpe(knr_flag=False,
         diffs = np.diff(datetimes)
         gaps = np.greater(diffs, interval)
         gap_inds = np.nonzero(gaps)[0] # gap_inds contains the left indices of the gaps
+        NN = 0 # accumulate offset of gap indices as you add entries
         for i in gap_inds:
             gap = diffs[i]
-            gap_start = datetimes[i]
-            gap_end = datetimes[i+1]
+            gap_start = datetimes[i + NN]
+            gap_end = datetimes[i + NN + 1]
             logger.info("-- Missing datetime interval between %s and %s" % (gap_start, gap_end))
-            N = gap.seconds / interval.seconds # number of entries to add
-            for j in range(1,N):
-                new_dt = gap_start + j*interval
+            N = gap.seconds / interval.seconds - 1 # number of entries to add
+            for j in range(1, N+1):
+                new_dt = gap_start + j * interval
                 new_row = np.array([(new_dt,) + (np.nan,) * (row_length - 1)], dtype=arr.dtype)
                 arr = np.append(arr, new_row)
                 datetimes = np.append(datetimes, new_dt) 
                 datetimes_ind = np.argsort(datetimes) # returns indices that would sort datetimes
             arr = arr[datetimes_ind] # sorts arr by sorted datetimes object indices
             datetimes = datetimes[datetimes_ind] # sorts datetimes
-
+            NN += N
+            
         # identify if month of year is a viable training feature
-        if prediction_input_filename and not random_prediction_dataset:
+        if prediction_file and not random_prediction_dataset:
             # all of the input file is representative training data
             end_train = end
         else:
