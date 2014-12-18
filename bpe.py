@@ -257,6 +257,9 @@ def bpe(knr_flag=False,
                         # use the data from the next day as an estimate
                         past_data[0:n_vals] = past_data[24*vals_per_hr:24*vals_per_hr+n_vals]
                         d = np.column_stack((d,past_data))
+                        x = lambda z: z.nonzero()[0]
+                        nans = np.isnan(d)
+                        d[nans]= np.interp(x(nans), x(~nans), d[~nans])
                 else:
                     d = np.column_stack((d,arr[s]))
         # add the target data
