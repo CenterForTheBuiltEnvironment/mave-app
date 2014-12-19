@@ -247,7 +247,6 @@ def bpe(knr_flag=False,
         for s in inputColNames:
             if s in arr.dtype.names:
                 d = np.column_stack((d,arr[s]))
-                in_d = np.copy(d)
 		if n_vals_in_past_day >0:
                     # create historical data at the intervals defined by n_vals_in_past_day
                     for v in range(1,n_vals_in_past_day+1):
@@ -264,7 +263,6 @@ def bpe(knr_flag=False,
 		else:
                     d = np.column_stack((d,arr[s]))
         # add the target data
-	out_d = np.copy(d)
         split = d.shape[1]
         for s in targetColNames:
             if s in arr.dtype.names:
@@ -272,9 +270,13 @@ def bpe(knr_flag=False,
 
         # remove any row with missing data
         logger.info("-- Removing training examples with missing values")
-        d = d[~np.isnan(d).any(axis=1)]
-	filtered_d = np.copy(d)
-        pdb.set_trace()
+	# filter the datetimes and data arrays so the match up
+	datetimes = datetimes[~np.isnan(d).any(axis=1)]
+	d = d[~np.isnan(d).any(axis=1)]
+        if (d[:,0] != np.array([dt.minute for dt in datetimes])).any() or \
+			(d[:,1] != np.array([dt.hour for dt in datetimes])).any():
+	  raise Error("Oh No! The data-processing elves have ruined Christmas! \
+			  - Datetimes array does not match data array")
 	# split into input and target arrays
         inputData, targetData = np.hsplit(d, np.array([split]))
         return inputData, targetData, headers, arr[dcn], use_month
