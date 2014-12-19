@@ -309,7 +309,7 @@ def bpe(knr_flag=False,
         raise Exception("The country could not be identified from the input file header lines")
         sys.exit(-1)
     elif country == 'us' and holidays_flag:
-        with open(os.path.join('Holidays','USFederalHolidays.p'), 'r') as fh:
+        with open(os.path.join('holidays','USFederalHolidays.p'), 'r') as fh:
             holidays = pickle.load(fh)
     else:
         holidays = []
