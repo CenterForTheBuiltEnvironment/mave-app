@@ -2,7 +2,7 @@
 Building Energy Prediction
 
 This software reads an input file (a required argument) containing 
-buidling energy data in a format similar to example file. 
+building energy data in a format similar to example file. 
 It then trains a model and estimates the error associated
 with predictions using the model.
 
@@ -272,18 +272,15 @@ def bpe(knr_flag=False,
         # remove any row with missing data
         logger.info("-- Removing training examples with missing values")
 	# filter the datetimes and data arrays so the match up
-	pdb.set_trace()
 	datetimes = datetimes[~np.isnan(d).any(axis=1)]
-	print 'array size pre filter: ' + str(len(d))
 	d = d[~np.isnan(d).any(axis=1)]
-        print 'array size post filter: ' + str(len(d))
 	if (d[:,0] != np.array([dt.minute for dt in datetimes])).any() or \
 			(d[:,1] != np.array([dt.hour for dt in datetimes])).any():
 	  raise Error("Oh No! The data-processing elves have ruined Christmas! \
 			  - Datetimes array does not match data array")
 	# split into input and target arrays
         inputData, targetData = np.hsplit(d, np.array([split]))
-        return inputData, targetData, headers, arr[dcn], use_month
+        return inputData, targetData, headers, datetimes, use_month
 
     def trainer(model, name, param_dist, search_iterations):
         # trains a model to the training data
@@ -468,7 +465,6 @@ def bpe(knr_flag=False,
             fo.write(datetime_col_name + ',load,\n')
             for pd, o in zip(predict_datetimes, out_test):
                 fo.write(str(pd) + ',' + str(o) + ',\n')
-    pdb.set_trace()
     if save:
         write_model_results(models, op)
         data_folder = os.path.join(op, 'Data')
