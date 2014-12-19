@@ -256,12 +256,13 @@ def bpe(knr_flag=False,
                         # for the first day in the data file there will be no historical data
                         # use the data from the next day as an estimate
                         past_data[0:n_vals] = past_data[24*vals_per_hr:24*vals_per_hr+n_vals]
-			x = lambda z: z.nonzero()[0]
-                        nans = np.isnan(past_data)
-                        past_data[nans]= np.interp(x(nans), x(~nans), past_data[~nans])
+			if prediction_file:
+			  x = lambda z: z.nonzero()[0]
+                          nans = np.isnan(past_data)
+                          past_data[nans]= np.interp(x(nans), x(~nans), past_data[~nans])
                         d = np.column_stack((d,past_data))
 		else:
-                    d = np.column_stack((d,arr[s]))
+			d = np.column_stack((d,arr[s]))
         # add the target data
         split = d.shape[1]
         for s in targetColNames:
@@ -271,9 +272,12 @@ def bpe(knr_flag=False,
         # remove any row with missing data
         logger.info("-- Removing training examples with missing values")
 	# filter the datetimes and data arrays so the match up
+	pdb.set_trace()
 	datetimes = datetimes[~np.isnan(d).any(axis=1)]
+	print 'array size pre filter: ' + str(len(d))
 	d = d[~np.isnan(d).any(axis=1)]
-        if (d[:,0] != np.array([dt.minute for dt in datetimes])).any() or \
+        print 'array size post filter: ' + str(len(d))
+	if (d[:,0] != np.array([dt.minute for dt in datetimes])).any() or \
 			(d[:,1] != np.array([dt.hour for dt in datetimes])).any():
 	  raise Error("Oh No! The data-processing elves have ruined Christmas! \
 			  - Datetimes array does not match data array")
@@ -321,7 +325,7 @@ def bpe(knr_flag=False,
         holidays = []
  
     f.seek(0) # rewind the file so we don't have to open it again
-    X, y, headers, datetimes, force_month = process_input_data(f)
+    X, y, headers, train_datetimes, force_month = process_input_data(f)
     y = np.ravel(y)
     logger.info("-- Using " + str(X.shape[1]) + " input features")
     logger.info("-- " + str(X.shape[1]-(n_vals_in_past_day+1)) + \
@@ -464,7 +468,7 @@ def bpe(knr_flag=False,
             fo.write(datetime_col_name + ',load,\n')
             for pd, o in zip(predict_datetimes, out_test):
                 fo.write(str(pd) + ',' + str(o) + ',\n')
-
+    pdb.set_trace()
     if save:
         write_model_results(models, op)
         data_folder = os.path.join(op, 'Data')
