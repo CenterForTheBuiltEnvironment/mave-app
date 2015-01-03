@@ -103,12 +103,13 @@ def bpe(knr_flag=False,
     #           'steam.kBTU', 'coolingelectricity.kWh', 'coolinggas.kBTU',
     #           'heatingelectricity.kWh', 'heatinggas.kBTU',
     #           'ventilationelectricity.kWh', 'lightingelectricity.kWh'}
-
-    inputColNames = ['dboat.F'] ## add other desired input features
+    
+    ## specify column names of input features that can benefit from historical data
+    historicalDataColNames = ['dboat.F']
 
     fp = input_file
     # remove special characters
-    inputColNames = [s.replace(".", "") for s in inputColNames]
+    historicalDataColNames = [s.replace(".", "") for s in historicalDataColNames]
     targetColNames = [s.replace(".", "") for s in targetColNames]
     ## define datetime column name
     datetime_col_name = 'time.LOCAL'
@@ -140,28 +141,9 @@ def bpe(knr_flag=False,
 
     # define output folder from parameters
     op = os.path.join(output_folder)
-    
-    # creates a sub folder output name that is detailed summary of the
-    # parameters used for these runs and saves the detailed output in
-    # folder
-    if save and not prediction_input_filename:
-        op = os.path.join(op, fp)
-        folder = 'rs'+ str(reduce_size) + \
-                 '_pf' + str(prediction_fraction) + \
-                 '_rps'+ str(random_prediction_dataset)[0]
-        op = os.path.join(op,folder)
-        folder = 'c' + str(comp_time)+ \
-                 '_k' + str(k) + \
-                 '_mmn' + str(min_max_normalization)[0] + \
-                 '_mth' + str(month_flag)[0] + \
-                 '_hol' + str(holidays_flag)[0] + \
-                 '_nv' + str(n_vals_in_past_day) + \
-                '_j' + str(join_holidays)
-        op = os.path.join(op,folder)
-
     if not os.path.exists(op): os.makedirs(op)
 
-    # list to contain each trained models
+    # list to contain each trained model
     models = []
     
     def process_input_data(f, force_month=False, prediction_file=False): 
@@ -244,30 +226,38 @@ def bpe(knr_flag=False,
 
         # add other selected input features if present in textfile
         logger.info("-- Adding other input data as training features")    
-        for s in inputColNames:
-            if s in arr.dtype.names:
-                d = np.column_stack((d,arr[s]))
-		if n_vals_in_past_day >0:
-                    # create historical data at the intervals defined by n_vals_in_past_day
-                    for v in range(1,n_vals_in_past_day+1):
-                        past_hours = v*24/(n_vals_in_past_day+1)
-                        n_vals = past_hours*vals_per_hr
-                        past_data = np.roll(arr[s],n_vals)
-                        # for the first day in the data file there will be no historical data
-                        # use the data from the next day as an estimate
-                        past_data[0:n_vals] = past_data[24*vals_per_hr:24*vals_per_hr+n_vals]
-			if prediction_file:
-			  x = lambda z: z.nonzero()[0]
-                          nans = np.isnan(past_data)
-                          past_data[nans]= np.interp(x(nans), x(~nans), past_data[~nans])
-                        d = np.column_stack((d,past_data))
-		else:
-			d = np.column_stack((d,arr[s]))
+        colNames = arr.dtype.names[1:] # no need to include datetime column
+	for s in colNames:
+          if s in historicalDataColNames:
+            d = np.column_stack((d,arr[s]))
+	    if n_vals_in_past_day >0:
+              # create input features using historical data 
+	      # at the intervals defined by n_vals_in_past_day
+              for v in range(1,n_vals_in_past_day+1):
+                past_hours = v*24/(n_vals_in_past_day+1)
+                n_vals = past_hours*vals_per_hr
+                past_data = np.roll(arr[s],n_vals)
+                # for the first day in the data file there will be no historical data
+                # use the data from the next day as a rough estimate
+                past_data[0:n_vals] = past_data[24*vals_per_hr:24*vals_per_hr+n_vals]
+	        if prediction_file:
+	          # interpolate any missing data points (nans) in the historical data
+		  # to ensure that the datetimes in the prediction input file
+		  # and the prediction output file will match
+		  # after the nans are removed in a following step
+	          x = lambda z: z.nonzero()[0]
+                  nans = np.isnan(past_data)
+                  past_data[nans]= np.interp(x(nans), x(~nans), past_data[~nans])
+                d = np.column_stack((d,past_data))
+	  elif not s in targetColNames:
+	    # this column is not in historicalDataColNames
+	    # just add the column as an input feature without historical data
+	    d = np.column_stack((d,arr[s]))
         # add the target data
         split = d.shape[1]
         for s in targetColNames:
-            if s in arr.dtype.names:
-                d = np.column_stack((d,arr[s]))
+	  if s in colNames:
+            d = np.column_stack((d,arr[s]))
 
         # remove any row with missing data
         logger.info("-- Removing training examples with missing values")
@@ -276,8 +266,8 @@ def bpe(knr_flag=False,
 	d = d[~np.isnan(d).any(axis=1)]
 	if (d[:,0] != np.array([dt.minute for dt in datetimes])).any() or \
 			(d[:,1] != np.array([dt.hour for dt in datetimes])).any():
-	  raise Error("Oh No! The data-processing elves have ruined Christmas! \
-			  - Datetimes array does not match data array")
+	  raise Error(" - The datetimes in the datetimes array do not \
+			  match those in the input features array")
 	# split into input and target arrays
         inputData, targetData = np.hsplit(d, np.array([split]))
         return inputData, targetData, headers, datetimes, use_month
@@ -325,8 +315,11 @@ def bpe(knr_flag=False,
     X, y, headers, train_datetimes, force_month = process_input_data(f)
     y = np.ravel(y)
     logger.info("-- Using " + str(X.shape[1]) + " input features")
-    logger.info("-- " + str(X.shape[1]-(n_vals_in_past_day+1)) + \
-       " are date or time related, the remainder are weather related")
+    num_dt_features = 4
+    if force_month:  num_dt_features += 1
+    if join_holidays or not holidays_flag:  num_dt_features -= 1
+    logger.info("-- " + str(num_dt_features) + \
+       " are date or time related, the remainder are related to other input features")
     logger.info("-- Using " + str(X.shape[0]) + \
        " valid samples (i.e. no missing values)")    
 

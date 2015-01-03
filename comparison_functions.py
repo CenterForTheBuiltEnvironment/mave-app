@@ -48,7 +48,7 @@ def plot_comparison(predicted, actual):
     plt.ylabel('Target value [orig. units]', fontsize=12)
     plt.subplot(212)
     plt.plot(t[a:b], predicted[a:b]/actual[a:b], 'k-', a,0, 'k--')
-    plt.xlabel('Training datapoint (ordered, typ. 1 hr)', fontsize=10)
+    plt.xlabel('Training datapoint (ordered, typ. 15 min)', fontsize=10)
     plt.ylabel('Error fraction [-]', fontsize=10)
     plt.suptitle('Prediction Data', fontsize=14, fontweight='bold')
     plt.show()
