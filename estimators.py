@@ -29,6 +29,7 @@ class HourWeekdayBinModel(DummyRegressor):
                 counts[hour, day] += 1
                 a[hour, day] += y[i]
 
+            counts[counts == 0] = 1
             self._model = a / counts
 
         elif self.strategy in ('median', 'kernel'):
