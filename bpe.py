@@ -262,8 +262,11 @@ def bpe(knr_flag=False,
         # remove any row with missing data
         logger.info("-- Removing training examples with missing values")
 	# filter the datetimes and data arrays so the match up
-	datetimes = datetimes[~np.isnan(d).any(axis=1)]
-	d = d[~np.isnan(d).any(axis=1)]
+	keep_inds = ~np.isnan(d).any(axis=1)
+	num_to_del = len(keep_inds[~keep_inds])
+	if num_to_del >0:
+  	  datetimes = datetimes[keep_inds]
+	  d = d[keep_inds]
 	if (d[:,0] != np.array([dt.minute for dt in datetimes])).any() or \
 			(d[:,1] != np.array([dt.hour for dt in datetimes])).any():
 	  raise Error(" - The datetimes in the datetimes array do not \
