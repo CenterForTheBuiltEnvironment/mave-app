@@ -10,8 +10,7 @@ with predictions using the model.
 @author Tyler Hoyt <thoyt@berkeley.edu>
 """
 
-import pdb
-import os, csv, sys, pickle, time
+import os, csv, pickle, time
 import dateutil.parser
 import numpy as np
 import estimators 
@@ -19,13 +18,13 @@ from datetime import datetime, date, timedelta
 from scipy.stats import randint as sp_randint
 from sklearn import preprocessing, cross_validation, svm, grid_search, \
         ensemble, neighbors, dummy
-from comparison_functions import ne, nmbe, rmse, cvrmse, plot_comparison,\
-        print_overview, write_model_results
 
 class BPE(object):
 
     HOLIDAYS_PICKLE_FILENAME = os.path.join('holidays', 'USFederalHolidays.p')
     DATETIME_COLUMN_NAME = 'time.LOCAL'
+    HISTORICAL_DATA_COLUMN_NAMES = ['dboatF']
+    TARGET_COLUMN_NAMES = ['wbelectricitykWh']
 
     def __init__(self, 
                  training_filename, 
@@ -57,7 +56,7 @@ class BPE(object):
         training_start_index = int(training_start_frac * training_data_L)
         training_end_index = int(training_end_frac * training_data_L)
         training_data = training_data[ training_start_index : training_end_index ]
-        
+
         try: 
             datetimes = map(lambda d: datetime.strptime(d, "%m/%d/%y %H:%M"), training_data[dcn])
         except ValueError:
@@ -67,16 +66,43 @@ class BPE(object):
         dtypes[0] = dtypes[0][0], '|S16' # force S16 datetimes
         training_data = training_data.astype(dtypes)
 
-        self.training_data, self.datetimes = self.clean_data(training_data, datetimes)
-        use_month = True if (self.datetimes[0] - self.datetimes[-1]).days > 360 else False
+        training_data, self.datetimes = self.clean_data(training_data, datetimes)
 
+        use_month = True if (self.datetimes[0] - self.datetimes[-1]).days > 360 else False
         vectorized_process_datetime = np.vectorize(self.process_datetime)
         d = np.column_stack(vectorized_process_datetime(self.datetimes, use_month))
         # minute, hour, weekday, holiday, and (month)
-        print d
 
-        print self.datetimes
-   
+        self.training_data = self.append_input_features(training_data, d)
+        print id(self.training_data), id(training_data)
+
+    def append_input_features(self, data, d0, historical_data_points=0):
+        column_names = data.dtype.names[1:] # no need to include datetime column
+        d = d0
+        for s in column_names:
+            if s in self.HISTORICAL_DATA_COLUMN_NAMES:
+                d = np.column_stack( (d, data[s]) )
+                if historical_data_points > 0:
+                    # create input features using historical data 
+                    # at the intervals defined by n_vals_in_past_day
+                    for v in range(1, historical_data_points + 1):
+                        past_hours = v * 24 / (historical_data_points + 1)
+                        n_vals = past_hours * vals_per_hr
+                        past_data = np.roll(data[s], n_vals)
+                        # for the first day in the data file there will be no historical data
+                        # use the data from the next day as a rough estimate
+                        past_data[0:n_vals] = past_data[ 24 * vals_per_hr: 24 * vals_per_hr + n_vals ]
+            elif not s in self.TARGET_COLUMN_NAMES:
+                # just add the column as an input feature without historical data
+                d = np.column_stack( (d, data[s]) )
+
+        # add the target data
+        split = d.shape[1]
+        for s in self.TARGET_COLUMN_NAMES:
+            if s in column_names:
+                d = np.column_stack( (d, data[s]) )
+        return d
+
     def clean_data(self, data, datetimes):
 
         start = datetimes[0]
@@ -147,6 +173,7 @@ class BPE(object):
             rv += hol,
 
         if use_month: rv += float(dt.month),
+        return rv
 
 if __name__=='__main__':
 
