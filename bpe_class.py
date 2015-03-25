@@ -67,9 +67,15 @@ class BPE(object):
         dtypes[0] = dtypes[0][0], '|S16' # force S16 datetimes
         training_data = training_data.astype(dtypes)
 
-        self.training_data = self.clean_data(training_data, datetimes)
+        self.training_data, self.datetimes = self.clean_data(training_data, datetimes)
+        use_month = True if (self.datetimes[0] - self.datetimes[-1]).days > 360 else False
 
-        print self.training_data
+        vectorized_process_datetime = np.vectorize(self.process_datetime)
+        d = np.column_stack(vectorized_process_datetime(self.datetimes, use_month))
+        # minute, hour, weekday, holiday, and (month)
+        print d
+
+        print self.datetimes
    
     def clean_data(self, data, datetimes):
 
@@ -106,7 +112,7 @@ class BPE(object):
             datetimes = datetimes[datetimes_ind] # sorts datetimes
             NN += N
 
-        return data
+        return data, datetimes
 
     def process_headers(self):
         # reads up to the first 100 lines of a file and returns
@@ -123,6 +129,24 @@ class BPE(object):
                     country = row[i]
             if row[0] == self.DATETIME_COLUMN_NAME: break
         return headers, country
+
+    def process_datetime(self, dt, use_month):
+        # takes a datetime and returns a tuple of:
+        # minute, hour, weekday, holiday, and (month)
+        w = float(dt.weekday())
+        rv = float(dt.minute), float(dt.hour), w
+        if self.holidays:
+            if dt.date() in self.holidays:
+                hol = 3.0 # this day is a holiday
+            elif (dt + timedelta(1,0)).date() in self.holidays:
+                hol = 2.0 # next day is a holiday
+            elif (dt - timedelta(1,0)).date() in self.holidays:
+                hol = 1.0 # previous day was a holiday
+            else:
+                hol = 0.0 # this day is not near a holiday
+            rv += hol,
+
+        if use_month: rv += float(dt.month),
 
 if __name__=='__main__':
 
