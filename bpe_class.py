@@ -10,16 +10,15 @@ with predictions using the model.
 @author Tyler Hoyt <thoyt@berkeley.edu>
 """
 
-import os, csv, pickle, time
+import os, csv, pickle
 import dateutil.parser
 import numpy as np
-import estimators 
 from datetime import datetime, date, timedelta
-from scipy.stats import randint as sp_randint
-from sklearn import preprocessing, cross_validation, svm, grid_search, \
-        ensemble, neighbors, dummy
+from sklearn import preprocessing, cross_validation
 
-class BPE(object):
+import trainers
+
+class Preprocessor(object):
 
     HOLIDAYS_PICKLE_FILENAME = os.path.join('holidays', 'USFederalHolidays.p')
     DATETIME_COLUMN_NAME = 'time.LOCAL'
@@ -66,15 +65,36 @@ class BPE(object):
         dtypes[0] = dtypes[0][0], '|S16' # force S16 datetimes
         training_data = training_data.astype(dtypes)
 
-        training_data, self.datetimes = self.clean_data(training_data, datetimes)
+        training_data, self.datetimes = self.interpolate_datetime(training_data, datetimes)
 
         use_month = True if (self.datetimes[0] - self.datetimes[-1]).days > 360 else False
         vectorized_process_datetime = np.vectorize(self.process_datetime)
         d = np.column_stack(vectorized_process_datetime(self.datetimes, use_month))
+        self.num_dt_features = np.shape(d)[1]
         # minute, hour, weekday, holiday, and (month)
 
-        self.training_data = self.append_input_features(training_data, d)
-        print id(self.training_data), id(training_data)
+        training_data, target_column_index = self.append_input_features(training_data, d)
+        self.training_data, self.target_data, self.datetimes = \
+                self.clean_missing_data(training_data, self.datetimes, target_column_index)
+
+    def clean_missing_data(self, d, datetimes, target_column_index):
+        # remove any row with missing data
+        # filter the datetimes and data arrays so the match up
+        keep_inds = ~np.isnan(d).any(axis=1)
+        num_to_del = len(keep_inds[~keep_inds])
+        if num_to_del > 0: 
+            datetimes = datetimes[keep_inds]
+            d = d[keep_inds]
+
+	    if (d[:,0] != np.array([dt.minute for dt in datetimes])).any() or \
+			(d[:,1] != np.array([dt.hour for dt in datetimes])).any():
+	        raise Error(" - The datetimes in the datetimes array do not \
+			  match those in the input features array")
+
+	    # split into input and target arrays
+        training_data, target_data = np.hsplit(d, np.array([target_column_index]))
+
+        return training_data, target_data, datetimes
 
     def append_input_features(self, data, d0, historical_data_points=0):
         column_names = data.dtype.names[1:] # no need to include datetime column
@@ -101,9 +121,9 @@ class BPE(object):
         for s in self.TARGET_COLUMN_NAMES:
             if s in column_names:
                 d = np.column_stack( (d, data[s]) )
-        return d
+        return d, split
 
-    def clean_data(self, data, datetimes):
+    def interpolate_datetime(self, data, datetimes):
 
         start = datetimes[0]
         second_val = datetimes[1]
@@ -175,10 +195,30 @@ class BPE(object):
         if use_month: rv += float(dt.month),
         return rv
 
+
+class ModelAggregator(object):
+
+    def __init__(self, bpe0, prediction_fraction=0.33):
+        self.bpe0 = bpe0
+        X = bpe0.training_data
+        y = np.ravel(bpe0.target_data)
+
+        X_standardizer = preprocessing.StandardScaler().fit(X)
+        y_standardizer = preprocessing.StandardScaler().fit(y)
+        X_s = X_standardizer.transform(X)
+        y_s = y_standardizer.transform(y)
+
+        self.X_s, self.X_test_s, self.y_s, self.y_test_s = \
+                cross_validation.train_test_split(X_s, y_s, test_size=prediction_fraction, random_state=0)
+
+        dummy_trainer = trainers.DummyTrainer()
+        dummy_trainer.train(X_s, y_s)
+        print dummy_trainer.model.score
+
 if __name__=='__main__':
 
-    bpe0 = BPE('data/6_P_cbe_02.csv', 
+    bpe0 = Preprocessor('data/6_P_cbe_02.csv', 
             training_start_frac=0.2,
             training_end_frac=0.8)
-    print bpe0
 
+    ModelAggregator(bpe0, prediction_fraction=0.33)
