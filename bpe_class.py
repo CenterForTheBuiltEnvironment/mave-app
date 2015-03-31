@@ -13,9 +13,8 @@ with predictions using the model.
 import os, csv, pickle
 import dateutil.parser
 import numpy as np
-from datetime import datetime, date, timedelta
+from datetime import datetime, timedelta
 from sklearn import preprocessing, cross_validation
-
 import trainers
 
 class Preprocessor(object):
@@ -26,13 +25,13 @@ class Preprocessor(object):
     TARGET_COLUMN_NAMES = ['wbelectricitykWh']
 
     def __init__(self, 
-                 training_filename, 
+                 training_f, 
                  use_holidays=True,
                  training_start_frac=0.0,
                  training_end_frac=1.0,
                  ):
 
-        training_f = open(training_filename, 'Ur')
+        #training_f = open(training_filename, 'Ur')
         self.reader = csv.reader(training_f, delimiter=',')
         self.headers, country = self.process_headers()
         training_f.seek(0) # rewind the file so we don't have to open it again
@@ -209,16 +208,55 @@ class ModelAggregator(object):
         y_s = y_standardizer.transform(y)
 
         self.X_s, self.X_test_s, self.y_s, self.y_test_s = \
-                cross_validation.train_test_split(X_s, y_s, test_size=prediction_fraction, random_state=0)
+                cross_validation.train_test_split(X_s, y_s, \
+                    test_size=prediction_fraction, random_state=0)
 
+        self.models = []
+        self.best_model = None
+
+    def train_all(self):
         dummy_trainer = trainers.DummyTrainer()
-        dummy_trainer.train(X_s, y_s)
-        print dummy_trainer.model.score
+        dummy_trainer.train(self.X_s, self.y_s)
+        self.models.append(dummy_trainer.model)
+        print "trained dummy"
 
-if __name__=='__main__':
+        hour_weekday_trainer = trainers.HourWeekdayBinModelTrainer()
+        hour_weekday_trainer.train(self.X_s, self.y_s)
+        self.models.append(hour_weekday_trainer.model)
+        print "trained hour-weekday"
 
-    bpe0 = Preprocessor('data/6_P_cbe_02.csv', 
+        kneighbors_trainer = trainers.KNeighborsTrainer()
+        kneighbors_trainer.train(self.X_s, self.y_s)
+        self.models.append(kneighbors_trainer.model)
+        print "trained k-nearest neighbors"
+
+        #svr_trainer = trainers.SVRTrainer(search_iterations=0)
+        #svr_trainer.train(self.X_s, self.y_s)
+        #self.models.append(svr_trainer.model)
+        #print "trained svr"
+
+        random_forest_trainer = trainers.RandomForestTrainer(search_iterations=20)
+        random_forest_trainer.train(self.X_s, self.y_s)
+        self.models.append(random_forest_trainer.model)
+        print "trained random forest"
+
+        #gradient_boosting_trainer = trainers.GradientBoostingTrainer(search_iterations=2)
+        #gradient_boosting_trainer.train(self.X_s, self.y_s)
+        #self.models.append(gradient_boosting_trainer.model)
+        #print "trained gradient boosting"
+
+        extra_trees_trainer = trainers.ExtraTreesTrainer(search_iterations=20)
+        extra_trees_trainer.train(self.X_s, self.y_s)
+        self.models.append(extra_trees_trainer.model)
+        print "trained extra trees"
+        
+if __name__=='__main__': 
+
+    training_f = open('data/6_P_cbe_02.csv', 'Ur')
+    bpe0 = Preprocessor(training_f, 
             training_start_frac=0.2,
             training_end_frac=0.8)
 
-    ModelAggregator(bpe0, prediction_fraction=0.33)
+    m = ModelAggregator(bpe0)
+    m.train_all()
+    print map(lambda m: m.best_score_, m.models)
