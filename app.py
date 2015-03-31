@@ -20,12 +20,13 @@ def upload():
         if training_file and allowed_file(training_file.filename):
             bpe0 = Preprocessor(training_file)
             m = ModelAggregator(bpe0)
-            m.train_dummy()
-            print map(lambda m: m.best_score_, m.models)
+            model = m.train_hour_weekday()
         if prediction_file and allowed_file(prediction_file.filename):
             bpe1 = Preprocessor(prediction_file)
-            m.
-            print bpe1.training_data
+            X_s = m.X_standardizer.transform(bpe1.X)            
+            y_out_s = model.predict(X_s)
+            y_out = m.y_standardizer.inverse_transform(y_out_s)
+            print y_out, bpe0.y
 
     return '''
     <!doctype html>

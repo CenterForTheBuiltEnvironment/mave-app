@@ -25,23 +25,22 @@ class Preprocessor(object):
     TARGET_COLUMN_NAMES = ['wbelectricitykWh']
 
     def __init__(self, 
-                 training_f, 
+                 input_file, 
                  use_holidays=True,
-                 training_start_frac=0.0,
-                 training_end_frac=1.0,
+                 start_frac=0.0,
+                 end_frac=1.0,
                  ):
 
-        #training_f = open(training_filename, 'Ur')
-        self.reader = csv.reader(training_f, delimiter=',')
+        self.reader = csv.reader(input_file, delimiter=',')
         self.headers, country = self.process_headers()
-        training_f.seek(0) # rewind the file so we don't have to open it again
+        input_file.seek(0) # rewind the file so we don't have to open it again
 
         self.holidays = []
         if country == 'us' and use_holidays:
             with open(self.HOLIDAYS_PICKLE_FILENAME, 'r') as fp:
                 self.holidays = pickle.load(fp)
         
-        training_data = np.genfromtxt(training_f, 
+        input_data = np.genfromtxt(input_file, 
                             comments='#', 
                             delimiter=',',
                             dtype=None, 
@@ -50,21 +49,21 @@ class Preprocessor(object):
                             missing_values='NA')
         dcn = self.DATETIME_COLUMN_NAME.replace(".", "")
 
-        training_data_L = len(training_data)
-        training_start_index = int(training_start_frac * training_data_L)
-        training_end_index = int(training_end_frac * training_data_L)
-        training_data = training_data[ training_start_index : training_end_index ]
+        input_data_L = len(input_data)
+        start_index = int(start_frac * input_data_L)
+        end_index = int(end_frac * input_data_L)
+        input_data = input_data[ start_index : end_index ]
 
         try: 
-            datetimes = map(lambda d: datetime.strptime(d, "%m/%d/%y %H:%M"), training_data[dcn])
+            datetimes = map(lambda d: datetime.strptime(d, "%m/%d/%y %H:%M"), input_data[dcn])
         except ValueError:
-            datetimes = map(lambda d: dateutil.parser.parse(d, dayfirst=False), training_data[dcn])
+            datetimes = map(lambda d: dateutil.parser.parse(d, dayfirst=False), input_data[dcn])
 
-        dtypes = training_data.dtype.descr
+        dtypes = input_data.dtype.descr
         dtypes[0] = dtypes[0][0], '|S16' # force S16 datetimes
-        training_data = training_data.astype(dtypes)
+        input_data = input_data.astype(dtypes)
 
-        training_data, self.datetimes = self.interpolate_datetime(training_data, datetimes)
+        input_data, self.datetimes = self.interpolate_datetime(input_data, datetimes)
 
         use_month = True if (self.datetimes[0] - self.datetimes[-1]).days > 360 else False
         vectorized_process_datetime = np.vectorize(self.process_datetime)
@@ -72,9 +71,9 @@ class Preprocessor(object):
         self.num_dt_features = np.shape(d)[1]
         # minute, hour, weekday, holiday, and (month)
 
-        training_data, target_column_index = self.append_input_features(training_data, d)
-        self.training_data, self.target_data, self.datetimes = \
-                self.clean_missing_data(training_data, self.datetimes, target_column_index)
+        input_data, target_column_index = self.append_input_features(input_data, d)
+        self.X, self.y, self.datetimes = \
+                self.clean_missing_data(input_data, self.datetimes, target_column_index)
 
     def clean_missing_data(self, d, datetimes, target_column_index):
         # remove any row with missing data
@@ -91,9 +90,9 @@ class Preprocessor(object):
 			  match those in the input features array")
 
 	    # split into input and target arrays
-        training_data, target_data = np.hsplit(d, np.array([target_column_index]))
+        X, target_data = np.hsplit(d, np.array([target_column_index]))
 
-        return training_data, target_data, datetimes
+        return X, target_data, datetimes
 
     def append_input_features(self, data, d0, historical_data_points=0):
         column_names = data.dtype.names[1:] # no need to include datetime column
@@ -199,17 +198,17 @@ class ModelAggregator(object):
 
     def __init__(self, bpe0, prediction_fraction=0.33):
         self.bpe0 = bpe0
-        X = bpe0.training_data
-        y = np.ravel(bpe0.target_data)
+        X = bpe0.X
+        y = np.ravel(bpe0.y)
 
-        X_standardizer = preprocessing.StandardScaler().fit(X)
-        y_standardizer = preprocessing.StandardScaler().fit(y)
-        X_s = X_standardizer.transform(X)
-        y_s = y_standardizer.transform(y)
+        self.X_standardizer = preprocessing.StandardScaler().fit(X)
+        self.y_standardizer = preprocessing.StandardScaler().fit(y)
+        self.X_s = self.X_standardizer.transform(X)
+        self.y_s = self.y_standardizer.transform(y)
 
-        self.X_s, self.X_test_s, self.y_s, self.y_test_s = \
-                cross_validation.train_test_split(X_s, y_s, \
-                    test_size=prediction_fraction, random_state=0)
+        #self.X_s, self.X_test_s, self.y_s, self.y_test_s = \
+        #        cross_validation.train_test_split(X_s, y_s, \
+        #            test_size=prediction_fraction, random_state=0)
 
         self.models = []
         self.best_model = None
@@ -219,6 +218,12 @@ class ModelAggregator(object):
         dummy_trainer.train(self.X_s, self.y_s)
         self.models.append(dummy_trainer.model)
         return dummy_trainer.model
+
+    def train_hour_weekday(self):
+        hour_weekday_trainer = trainers.HourWeekdayBinModelTrainer()
+        hour_weekday_trainer.train(self.X_s, self.y_s)
+        self.models.append(hour_weekday_trainer.model)
+        return hour_weekday_trainer.model
 
     def train_all(self):
         dummy_trainer = trainers.DummyTrainer()
@@ -258,10 +263,10 @@ class ModelAggregator(object):
         
 if __name__=='__main__': 
 
-    training_f = open('data/6_P_cbe_02.csv', 'Ur')
-    bpe0 = Preprocessor(training_f, 
-            training_start_frac=0.2,
-            training_end_frac=0.8)
+    f = open('data/6_P_cbe_02.csv', 'Ur')
+    bpe0 = Preprocessor(f, 
+            start_frac=0.2,
+            end_frac=0.8)
 
     m = ModelAggregator(bpe0)
     m.train_all()
