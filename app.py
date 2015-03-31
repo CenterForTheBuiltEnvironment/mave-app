@@ -15,20 +15,26 @@ def allowed_file(filename):
 @app.route('/', methods=['GET', 'POST'])
 def upload():
     if request.method == 'POST':
-        _file = request.files['file']
-        if _file and allowed_file(_file.filename):
-            bpe0 = Preprocessor(_file)
+        training_file = request.files['training_file']
+        prediction_file = request.files['prediction_file']
+        if training_file and allowed_file(training_file.filename):
+            bpe0 = Preprocessor(training_file)
             m = ModelAggregator(bpe0)
-            m.train_all()
+            m.train_dummy()
             print map(lambda m: m.best_score_, m.models)
+        if prediction_file and allowed_file(prediction_file.filename):
+            bpe1 = Preprocessor(prediction_file)
+            m.
+            print bpe1.training_data
 
     return '''
     <!doctype html>
     <title>Upload new File</title>
     <h1>Upload new File</h1>
     <form action="" method=post enctype=multipart/form-data>
-      <p><input type=file name=file>
-         <input type=submit value=Upload>
+      <p><input type=file name="training_file">
+      <p><input type=file name="prediction_file">
+      <input type=submit value=Upload>
     </form>
     '''
 
