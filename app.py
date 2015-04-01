@@ -1,6 +1,6 @@
 import csv
 import json
-from bpe.bpe_class import Preprocessor, ModelAggregator
+from bpe.bpe import Preprocessor, ModelAggregator
 from flask import Flask, request
 
 ALLOWED_EXTENSIONS = set(['csv'])
