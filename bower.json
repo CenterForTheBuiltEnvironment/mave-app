@@ -1,0 +1,21 @@
+{
+  "name": "bpe",
+  "version": "0.0.0",
+  "homepage": "https://github.com/CenterForTheBuiltEnvironment/bpe",
+  "authors": [
+    "Tyler Hoyt <tyler.hoyt@gmail.com>"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "underscore": "~1.8.2",
+    "d3": "<=3.5.0",
+    "c3": "~0.4.10"
+  }
+}

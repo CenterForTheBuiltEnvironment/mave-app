@@ -1,5 +1,6 @@
 import csv
-from bpe_class import Preprocessor, ModelAggregator
+import json
+from bpe.bpe_class import Preprocessor, ModelAggregator
 from flask import Flask, request
 
 ALLOWED_EXTENSIONS = set(['csv'])
@@ -26,7 +27,10 @@ def upload():
             X_s = m.X_standardizer.transform(bpe1.X)            
             y_out_s = model.predict(X_s)
             y_out = m.y_standardizer.inverse_transform(y_out_s)
-            print y_out, bpe0.y
+            rv = {}
+            rv['y_predicted'] = y_out.tolist()
+            rv['y_input'] = bpe0.y.flatten().tolist()
+            return json.dumps(rv)
 
     return '''
     <!doctype html>
