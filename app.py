@@ -1,13 +1,17 @@
 import csv
 import json
 from bpe.bpe import Preprocessor, ModelAggregator
-from flask import Flask, request
+from flask import Flask, request, render_template
+from flask.ext.bower import Bower
 
 ALLOWED_EXTENSIONS = set(['csv'])
 
 STATIC_URL_PATH = '/static/'
 
 app = Flask(__name__, static_url_path=STATIC_URL_PATH)
+
+# Enable bower static urls
+Bower(app)
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -30,18 +34,9 @@ def upload():
             rv = {}
             rv['y_predicted'] = y_out.tolist()
             rv['y_input'] = bpe0.y.flatten().tolist()
-            return json.dumps(rv)
+            return render_template('result.html', data=rv)
 
-    return '''
-    <!doctype html>
-    <title>Upload new File</title>
-    <h1>Upload new File</h1>
-    <form action="" method=post enctype=multipart/form-data>
-      <p><input type=file name="training_file">
-      <p><input type=file name="prediction_file">
-      <input type=submit value=Upload>
-    </form>
-    '''
+    return render_template('index.html', data=None)
 
 if __name__ == '__main__':
     app.run(debug=True)
