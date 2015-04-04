@@ -28,12 +28,13 @@ def upload():
             model = m.train_hour_weekday()
         if prediction_file and allowed_file(prediction_file.filename):
             bpe1 = Preprocessor(prediction_file)
-            X_s = m.X_standardizer.transform(bpe1.X)            
+            X_s = m.X_standardizer.transform(bpe1.X)
             y_out_s = model.predict(X_s)
             y_out = m.y_standardizer.inverse_transform(y_out_s)
             rv = {}
-            rv['y_predicted'] = y_out.tolist()
-            rv['y_input'] = bpe0.y.flatten().tolist()
+            to_dict = lambda t: {'datetime': t[0], 'value': t[1]}
+            rv['y_predicted'] = map(to_dict, zip(bpe1.datetimes, y_out.tolist()))
+            rv['y_input'] = map(to_dict, zip(bpe0.datetimes, bpe0.y.flatten().tolist()))
             return render_template('result.html', data=rv)
 
     return render_template('index.html', data=None)
