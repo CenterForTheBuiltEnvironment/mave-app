@@ -6,9 +6,10 @@ Measurement and verification tool for estimating building energy performance
 Installation
 ============
 
-To install the tool on your machine, start by installing Python 2.7, virtualenv and python-pip. Then,
+To install the tool on your machine, start by installing [Python 2.7](https://www.python.org/downloads/release/python-279/) and [pip](https://pip.pypa.io/en/latest/installing.html). Then,
 
 ```
+pip install virtualenv
 virtualenv venv
 . venv/bin/activate
 pip install -r requirements.txt
