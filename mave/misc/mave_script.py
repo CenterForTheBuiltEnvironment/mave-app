@@ -69,7 +69,7 @@ def process_datetime(dt, use_month, join_holidays, holidays_flag):
             rv = float(dt.minute), float(dt.hour), w
     return rv
 
-def bpe(knr_flag=False,
+def mave(knr_flag=False,
         svr_flag=False,
         rfr_flag=False,
         gbr_flag=False,
@@ -545,4 +545,4 @@ if __name__ == '__main__':
         logger.addHandler(po)
     logger.info("\nAssessing input file: " + args.input_file + "\n")
 
-    bpe(**args.__dict__)
+    mave(**args.__dict__)

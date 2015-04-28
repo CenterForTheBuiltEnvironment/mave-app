@@ -1,54 +1,56 @@
-bpe
-===
+Mave
+====
 
-Tools for estimating building energy performance
+Measurement and verification tool for estimating building energy performance
 
+Installation
+============
 
-Requires:
-Python 2.7
+To install the tool on your machine, start by installing Python 2.7, virtualenv and python-pip. Then,
 
-Package dependencies:
-numpy
-scipy
-scikit-learn
-
-Install these using the following commands from the command line:
 ```
-$ pip install -U numpy
-$ pip install -U scipy
-$ pip install -U scikit-learn
+virtualenv venv
+. venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Usage
-===============================
+Install client package dependencies with [bower](http://bower.io/). (requires [npm](https://www.npmjs.com/package/npm))
+```
+bower install
+```
+
+Usage of the command line tool
+==============================
 Help (explanation of the available command line arguments)
 
-```$ python bpe.py -h```
+The command line script is in `./mave/misc/` and can be used independently of the app or library.
+
+```$ python mave_script.py -h```
 
 Simplest case - read in a file with energy consumption data, and make a (blind) prediction on the last one third of the file
 ```
-python bpe.py InputFile.csv
+python mave_script.py InputFile.csv
 ```
 
 Use 4 cores for training
 ```
-$ python bpe.py InputFile.csv -n 4
+$ python mave_script.py InputFile.csv -n 4
 ```
 Use all available cores for training
 ```
-$ python bpe.py InputFile.csv -n -1
+$ python mave_script.py InputFile.csv -n -1
 ```
 
 Increase the amount of computational time spent training by factor of 10
 ```
-$ python bpe.py InputFile.csv -c 10.0
+$ python mave_script.py InputFile.csv -c 10.0
 ```
 Reduce the amount of computational time spent training by factor of 10
 ```
-$ python bpe.py InputFile.csv -c 0.1
+$ python mave_script.py InputFile.csv -c 0.1
 ```
 
 Display verbose feedback, save detailed outputs, and plot a random sample of data
 ```
-$ python bpe.py InputFile.csv -v -s -p
+$ python mave_script.py InputFile.csv -v -s -p
 ```
