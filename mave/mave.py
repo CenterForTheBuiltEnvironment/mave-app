@@ -19,7 +19,7 @@ import trainers
 
 class Preprocessor(object):
 
-    HOLIDAYS_PICKLE_FILENAME = os.path.join('bpe', 'holidays', 'USFederalHolidays.p')
+    HOLIDAYS_PICKLE_FILENAME = os.path.join('mave', 'holidays', 'USFederalHolidays.p')
     DATETIME_COLUMN_NAME = 'time.LOCAL'
     HISTORICAL_DATA_COLUMN_NAMES = ['dboatF']
     TARGET_COLUMN_NAMES = ['wbelectricitykWh']
@@ -196,10 +196,10 @@ class Preprocessor(object):
 
 class ModelAggregator(object):
 
-    def __init__(self, bpe0, prediction_fraction=0.33):
-        self.bpe0 = bpe0
-        X = bpe0.X
-        y = np.ravel(bpe0.y)
+    def __init__(self, p0, prediction_fraction=0.33):
+        self.p0 = p0
+        X = p0.X
+        y = np.ravel(p0.y)
 
         self.X_standardizer = preprocessing.StandardScaler().fit(X)
         self.y_standardizer = preprocessing.StandardScaler().fit(y)
@@ -264,10 +264,10 @@ class ModelAggregator(object):
 if __name__=='__main__': 
 
     f = open('data/6_P_cbe_02.csv', 'Ur')
-    bpe0 = Preprocessor(f, 
+    p0 = Preprocessor(f, 
             start_frac=0.2,
             end_frac=0.8)
 
-    m = ModelAggregator(bpe0)
+    m = ModelAggregator(p0)
     m.train_all()
     print map(lambda m: m.best_score_, m.models)

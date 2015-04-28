@@ -1,6 +1,6 @@
 import csv
 import json
-from bpe.bpe import Preprocessor, ModelAggregator
+from mave.mave import Preprocessor, ModelAggregator
 from flask import Flask, request, render_template
 from flask.ext.bower import Bower
 
@@ -23,18 +23,20 @@ def upload():
         training_file = request.files['training_file']
         prediction_file = request.files['prediction_file']
         if training_file and allowed_file(training_file.filename):
-            bpe0 = Preprocessor(training_file)
-            m = ModelAggregator(bpe0)
+            p0 = Preprocessor(training_file)
+            m = ModelAggregator(p0)
             model = m.train_hour_weekday()
         if prediction_file and allowed_file(prediction_file.filename):
-            bpe1 = Preprocessor(prediction_file)
-            X_s = m.X_standardizer.transform(bpe1.X)
+            p1 = Preprocessor(prediction_file)
+            X_s = m.X_standardizer.transform(p1.X)
             y_out_s = model.predict(X_s)
             y_out = m.y_standardizer.inverse_transform(y_out_s)
             rv = {}
             to_dict = lambda t: {'datetime': t[0], 'value': t[1]}
-            rv['y_predicted'] = map(to_dict, zip(bpe1.datetimes, y_out.tolist()))
-            rv['y_input'] = map(to_dict, zip(bpe0.datetimes, bpe0.y.flatten().tolist()))
+            p0.datetimes  = map(lambda d: 1000 * d.strftime('%s'), p0.datetimes)
+            p1.datetimes  = map(lambda d: 1000 * d.strftime('%s'), p1.datetimes)
+            rv['y_predicted'] = map(to_dict, zip(p1.datetimes, y_out.tolist()))
+            rv['y_input'] = map(to_dict, zip(p0.datetimes, p0.y.flatten().tolist()))
             return render_template('result.html', data=rv)
 
     return render_template('index.html', data=None)
