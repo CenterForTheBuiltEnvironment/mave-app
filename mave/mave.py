@@ -14,12 +14,12 @@ import os, csv, pickle
 import dateutil.parser
 import numpy as np
 from datetime import datetime, timedelta
-from sklearn import preprocessing, cross_validation
+from sklearn import preprocessing, cross_validation, metrics
 import trainers
 
 class Preprocessor(object):
 
-    HOLIDAYS_PICKLE_FILENAME = os.path.join('mave', 'holidays', 'USFederalHolidays.p')
+    HOLIDAYS_PICKLE_FILENAME = os.path.join('holidays', 'USFederalHolidays.p')
     DATETIME_COLUMN_NAME = 'time.LOCAL'
     HISTORICAL_DATA_COLUMN_NAMES = ['dboatF']
     TARGET_COLUMN_NAMES = ['wbelectricitykWh']
@@ -39,7 +39,7 @@ class Preprocessor(object):
         if country == 'us' and use_holidays:
             with open(self.HOLIDAYS_PICKLE_FILENAME, 'r') as fp:
                 self.holidays = pickle.load(fp)
-        
+
         input_data = np.genfromtxt(input_file, 
                             comments='#', 
                             delimiter=',',
@@ -72,6 +72,7 @@ class Preprocessor(object):
         # minute, hour, weekday, holiday, and (month)
 
         input_data, target_column_index = self.append_input_features(input_data, d)
+
         self.X, self.y, self.datetimes = \
                 self.clean_missing_data(input_data, self.datetimes, target_column_index)
 
@@ -196,7 +197,7 @@ class Preprocessor(object):
 
 class ModelAggregator(object):
 
-    def __init__(self, p0, prediction_fraction=0.33):
+    def __init__(self, p0, test_size=0.0):
         self.p0 = p0
         X = p0.X
         y = np.ravel(p0.y)
@@ -206,9 +207,9 @@ class ModelAggregator(object):
         self.X_s = self.X_standardizer.transform(X)
         self.y_s = self.y_standardizer.transform(y)
 
-        #self.X_s, self.X_test_s, self.y_s, self.y_test_s = \
-        #        cross_validation.train_test_split(X_s, y_s, \
-        #            test_size=prediction_fraction, random_state=0)
+        self.X_s, self.X_test_s, self.y_s, self.y_test_s = \
+                    cross_validation.train_test_split(self.X_s, self.y_s, \
+                    test_size=test_size, random_state=0)
 
         self.models = []
         self.best_model = None
@@ -260,14 +261,28 @@ class ModelAggregator(object):
         extra_trees_trainer.train(self.X_s, self.y_s)
         self.models.append(extra_trees_trainer.model)
         print "trained extra trees"
-        
+    
+    def score(self):
+        y_mean = np.mean(self.y_test_s)
+        r2_best = None
+        for model in self.models:
+            y_out = model.predict(self.X_test_s)
+            r2 = metrics.r2_score(self.y_test_s, y_out)
+            mse = metrics.mean_squared_error(self.y_test_s, y_out)
+            rmse = math.sqrt(mse)
+            cvrmse = rmse / y_mean
+            if r2 > r2_best:
+                r2_best = r2
+                cvrmse_best = cvrmse
+                self.best_model = model
+
+        return self.best_model, r2_best, cvrmse_best 
+
 if __name__=='__main__': 
 
-    f = open('data/6_P_cbe_02.csv', 'Ur')
-    p0 = Preprocessor(f, 
-            start_frac=0.2,
-            end_frac=0.8)
+    f = open('csv/6_P_cbe_02.csv', 'Ur')
+    p0 = Preprocessor(f)
 
-    m = ModelAggregator(p0)
+    m = ModelAggregator(p0, test_size=0.2)
     m.train_all()
-    print map(lambda m: m.best_score_, m.models)
+    print m.score()
