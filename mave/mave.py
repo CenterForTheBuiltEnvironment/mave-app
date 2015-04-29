@@ -13,6 +13,7 @@ with predictions using the model.
 import os, csv, pickle
 import dateutil.parser
 import numpy as np
+from math import sqrt
 from datetime import datetime, timedelta
 from sklearn import preprocessing, cross_validation, metrics
 import trainers
@@ -269,14 +270,16 @@ class ModelAggregator(object):
             y_out = model.predict(self.X_test_s)
             r2 = metrics.r2_score(self.y_test_s, y_out)
             mse = metrics.mean_squared_error(self.y_test_s, y_out)
-            rmse = math.sqrt(mse)
+            rmse = sqrt(mse)
             cvrmse = rmse / y_mean
+            mae = metrics.mean_absolute_error(self.y_test_s, y_out)
             if r2 > r2_best:
                 r2_best = r2
                 cvrmse_best = cvrmse
+                mae_best = mae
                 self.best_model = model
 
-        return self.best_model, r2_best, cvrmse_best 
+        return self.best_model, r2_best, cvrmse_best, mae_best
 
 if __name__=='__main__': 
 
