@@ -174,9 +174,11 @@ def mave(knr_flag=False,
         # which causes problems when a longer datetime string is needed
         # - e.g. 10/10/2000 00:00
         dtypes = arr.dtype.descr
-        dtypes[0] = dtypes[0][0], '|S16'
+	dtypes[0] = dtypes[0][0], '|S16'
+        for i in range(1,len(dtypes)):
+          dtypes[i] = dtypes[i][0], 'f8'
         arr = arr.astype(dtypes)
-        
+        pdb.set_trace()        
         # calculate the interval between datetimes
         interval = second_val - start
         vals_per_hr = 3600 / interval.seconds
