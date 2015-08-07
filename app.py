@@ -1,6 +1,6 @@
 import csv
 import json
-from mave.mave import Preprocessor, ModelAggregator
+from mave.core import Preprocessor, ModelAggregator
 from flask import Flask, request, render_template
 from flask.ext.bower import Bower
 
